@@ -35,7 +35,7 @@ class WebAccounting:
         return []
 
     def save_data(self):
-with open(self.filename, 'w', encoding='utf-8') as f:
+        with open(self.filename, 'w', encoding='utf-8') as f:
             json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
 
     def add_record(self, r_type, amount, category, note):
