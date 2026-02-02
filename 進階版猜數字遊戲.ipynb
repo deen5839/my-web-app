@@ -1,0 +1,119 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/deen5839/my-web-app/blob/main/%E9%80%B2%E9%9A%8E%E7%89%88%E7%8C%9C%E6%95%B8%E5%AD%97%E9%81%8A%E6%88%B2.ipynb\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import random\n",
+        "import sys\n",
+        "\n",
+        "def play_game():\n",
+        "    \"\"\"猜數字遊戲主程式\"\"\"\n",
+        "    # 設定遊戲參數\n",
+        "    min_num = 1\n",
+        "    max_num = 100\n",
+        "    target = random.randint(min_num, max_num)\n",
+        "    attempts = 0\n",
+        "    max_attempts = 7  # 給朋友 7 次機會，增加緊張感\n",
+        "\n",
+        "    print(\"=\" * 30)\n",
+        "    print(\"      終極猜數字遊戲\")\n",
+        "    print(\"=\" * 30)\n",
+        "    print(f\"我已經選好了一個 {min_num} 到 {max_num} 之間的數字。\")\n",
+        "    print(f\"你有 {max_attempts} 次機會，挑戰看看吧！\\n\")\n",
+        "\n",
+        "    while attempts < max_attempts:\n",
+        "        try:\n",
+        "            # 取得玩家輸入\n",
+        "            guess_input = input(f\"第 {attempts + 1} 次嘗試 - 請輸入數字: \")\n",
+        "\n",
+        "            # 讓玩家可以輸入 'q' 提早結束\n",
+        "            if guess_input.lower() == 'q':\n",
+        "                print(\"玩家選擇中途退出遊戲。\")\n",
+        "                break\n",
+        "\n",
+        "            guess = int(guess_input)\n",
+        "            attempts += 1\n",
+        "\n",
+        "            # 檢查是否超出範圍\n",
+        "            if guess < min_num or guess > max_num:\n",
+        "                print(f\"哎呀！請輸入 {min_num} 到 {max_num} 之間的數字。\")\n",
+        "                continue\n",
+        "\n",
+        "            # 判斷結果\n",
+        "            if guess < target:\n",
+        "                print(\"太小了！再大一點。\\n\")\n",
+        "            elif guess > target:\n",
+        "                print(\"太大了！再小一點。\\n\")\n",
+        "            else:\n",
+        "                print(f\"\\n🎉 厲害喔！你只花了 {attempts} 次就猜對了！\")\n",
+        "                print(f\"正確答案就是: {target}\")\n",
+        "                return # 猜對了直接結束函數\n",
+        "\n",
+        "        except ValueError:\n",
+        "            print(\"❌ 錯誤：請輸入『整數數字』，不要輸入文字或其他符號。\\n\")\n",
+        "\n",
+        "    if attempts >= max_attempts:\n",
+        "        print(\"\\n😱 殘念！機會用完囉。\")\n",
+        "        print(f\"正確答案其實是: {target}\")\n",
+        "\n",
+        "if __name__ == \"__main__\":\n",
+        "    try:\n",
+        "        play_game()\n",
+        "    except KeyboardInterrupt:\n",
+        "        print(\"\\n遊戲被強制中止。\")\n",
+        "\n",
+        "    # 這是打包成 .exe 的關鍵：防止程式跑完直接閃退\n",
+        "    print(\"\\n\" + \"=\" * 30)\n",
+        "    input(\"遊戲結束，按 Enter 鍵關閉視窗...\")\n",
+        "    sys.exit()"
+      ],
+      "outputs": [
+        {
+          "metadata": {
+            "tags": null
+          },
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "==============================\n",
+            "      終極猜數字遊戲\n",
+            "==============================\n",
+            "我已經選好了一個 1 到 100 之間的數字。\n",
+            "你有 7 次機會，挑戰看看吧！\n",
+            "\n"
+          ]
+        }
+      ],
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "w-6lMhjX02wZ",
+        "outputId": "3d560aa6-b35e-472e-e64f-fb3037afb885"
+      }
+    }
+  ],
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
