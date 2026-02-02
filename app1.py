@@ -3,7 +3,6 @@ import random
 
 # 設定網頁標題與風格
 st.set_page_config(
-    ,
     page_title="AI 時代的猜數字", 
     page_icon="🤖",
     layout="centered"
