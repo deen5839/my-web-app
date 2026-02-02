@@ -7,7 +7,7 @@ st.set_page_config(
     page_icon="🐍",
     layout="centered"
 )
-unsafe_allow_html=True
+st.markdown(unsafe_allow_html=True)
 
 # 初始化遊戲狀態（這是確保網頁不會報錯的關鍵）
 if "target_number" not in st.session_state:
