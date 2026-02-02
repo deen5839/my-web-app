@@ -1,14 +1,31 @@
+import streamlit as st
 import json
 import os
+import pandas as pd
 from datetime import datetime
 
-class AccountingApp:
+# 1. 網頁初始設定
+st.set_page_config(page_title="個人理財載體", page_icon="💰", layout="wide")
+
+# 2. 強力 CSS 注入
+hide_ui_style = """
+    <style>
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    [data-testid="manage-app-button"] {display: none !important;}
+    .stAppDeployButton {display: none !important;}
+    </style>
+"""
+st.markdown(hide_ui_style, unsafe_allow_html=True)
+# 3. 資料處理中心
+class WebAccounting:
     def __init__(self):
         self.filename = 'accounting_data.json'
-        self.records = self.load_data()
-    
+        if 'records' not in st.session_state:
+            st.session_state.records = self.load_data()
+
     def load_data(self):
-        """載入資料"""
         if os.path.exists(self.filename):
             try:
                 with open(self.filename, 'r', encoding='utf-8') as f:
@@ -16,159 +33,56 @@ class AccountingApp:
             except:
                 return []
         return []
-    
+
     def save_data(self):
-        """儲存資料"""
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            json.dump(self.records, f, ensure_ascii=False, indent=2)
-    
-    def add_record(self):
-        """新增記錄"""
-        print("\n=== 新增記錄 ===")
-        
-        # 選擇類型
-        while True:
-            record_type = input("類型 (1.收入 / 2.支出): ").strip()
-            if record_type in ['1', '2']:
-                record_type = '收入' if record_type == '1' else '支出'
-                break
-            print("請輸入 1 或 2")
-        
-        # 輸入金額
-        while True:
-            try:
-                amount = float(input("金額: "))
-                if amount > 0:
-                    break
-                print("金額必須大於 0")
-            except ValueError:
-                print("請輸入有效的數字")
-        
-        # 選擇類別
-        if record_type == '收入':
-            categories = ['薪水', '獎金', '投資', '其他']
-        else:
-            categories = ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
-        
-        print("\n類別選項:", ' / '.join([f"{i+1}.{c}" for i, c in enumerate(categories)]))
-        category_input = input("選擇類別編號或自行輸入: ").strip()
-        
-        if category_input.isdigit() and 1 <= int(category_input) <= len(categories):
-            category = categories[int(category_input) - 1]
-        else:
-            category = category_input if category_input else '其他'
-        
-        # 備註
-        note = input("備註 (可選): ").strip()
-        
-        # 建立記錄
+with open(self.filename, 'w', encoding='utf-8') as f:
+            json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
+
+    def add_record(self, r_type, amount, category, note):
+        new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
         record = {
-            'id': len(self.records) + 1,
+            'id': new_id,
             'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-            'type': record_type,
+            'type': r_type,
             'amount': amount,
             'category': category,
             'note': note
         }
-        
-        self.records.append(record)
+        st.session_state.records.append(record)
         self.save_data()
-        print(f"\n✓ 已新增{record_type}記錄：${amount:,.0f}")
-    
-    def view_records(self):
-        """查看所有記錄"""
-        if not self.records:
-            print("\n目前沒有任何記錄")
-            return
-        
-        print("\n=== 所有記錄 ===")
-        print(f"{'編號':<5} {'日期':<17} {'類型':<6} {'金額':<12} {'類別':<10} {'備註'}")
-        print("-" * 80)
-        
-        for record in self.records:
-            print(f"{record['id']:<5} {record['date']:<17} {record['type']:<6} "
-                  f"${record['amount']:>10,.0f} {record['category']:<10} {record['note']}")
-    
-    def view_statistics(self):
-        """查看統計"""
-        if not self.records:
-            print("\n目前沒有任何記錄")
-            return
-        
-        income = sum(r['amount'] for r in self.records if r['type'] == '收入')
-        expense = sum(r['amount'] for r in self.records if r['type'] == '支出')
-        balance = income - expense
-        
-        print("\n=== 統計資訊 ===")
-        print(f"總收入：${income:>12,.0f}")
-        print(f"總支出：${expense:>12,.0f}")
-        print(f"{'結餘：' if balance >= 0 else '虧損：'}${abs(balance):>12,.0f}")
-        print(f"記錄筆數：{len(self.records)} 筆")
-    
-    def delete_record(self):
-        """刪除記錄"""
-        if not self.records:
-            print("\n目前沒有任何記錄")
-            return
-        
-        self.view_records()
-        
-        try:
-            record_id = int(input("\n請輸入要刪除的記錄編號: "))
-            record = next((r for r in self.records if r['id'] == record_id), None)
-            
-            if record:
-                self.records.remove(record)
-                self.save_data()
-                print(f"\n✓ 已刪除記錄 #{record_id}")
-            else:
-                print("\n✗ 找不到該記錄")
-        except ValueError:
-            print("\n✗ 請輸入有效的編號")
-    
-    def clear_all(self):
-        """清除所有記錄"""
-        confirm = input("\n確定要清除所有記錄嗎？(y/n): ").lower()
-        if confirm == 'y':
-            self.records = []
-            self.save_data()
-            print("\n✓ 已清除所有記錄")
-        else:
-            print("\n✗ 已取消")
-    
-    def run(self):
-        """主程式"""
-        while True:
-            print("\n" + "=" * 40)
-            print("💰 記帳 App")
-            print("=" * 40)
-            print("1. 新增記錄")
-            print("2. 查看所有記錄")
-            print("3. 查看統計")
-            print("4. 刪除記錄")
-            print("5. 清除所有記錄")
-            print("6. 退出")
-            print("=" * 40)
-            
-            choice = input("請選擇功能 (1-6): ").strip()
-            
-            if choice == '1':
-                self.add_record()
-            elif choice == '2':
-                self.view_records()
-            elif choice == '3':
-                self.view_statistics()
-            elif choice == '4':
-                self.delete_record()
-            elif choice == '5':
-                self.clear_all()
-            elif choice == '6':
-                print("\n感謝使用！再見👋")
-                break
-            else:
-                print("\n✗ 無效的選項，請輸入 1-6")
 
-# 執行程式
-if __name__ == "__main__":
-    app = AccountingApp()
-    app.run()
+    def delete_record(self, r_id):
+        st.session_state.records = [r for r in st.session_state.records if r['id'] != r_id]
+        self.save_data()
+
+app = WebAccounting()
+
+# 4. 網頁 UI
+st.title("💰 個人理財：數據記錄載體")
+
+tab1, tab2 = st.tabs(["✨ 新增流水", "📊 數據分析"])
+
+with tab1:
+    col1, col2 = st.columns(2)
+    with col1:
+        r_type = st.radio("選擇性質", ["支出", "收入"], horizontal=True)
+        amount = st.number_input("輸入金額", min_value=0.0, step=10.0)
+    with col2:
+        category = st.selectbox("分類", ['飲食', '交通', '購物', '娛樂', '醫療', '其他'])
+        note = st.text_input("備註")
+    
+    if st.button("🚀 存入載體", use_container_width=True):
+        if amount > 0:
+            app.add_record(r_type, amount, category, note)
+            st.success("紀錄成功！")
+            st.rerun()
+
+with tab2:
+    if st.session_state.records:
+        df = pd.DataFrame(st.session_state.records)
+        st.dataframe(df, use_container_width=True)
+        # 簡單統計
+        expense = df[df['type'] == '支出']['amount'].sum()
+        st.metric("總支出", f"${expense:,.0f}")
+    else:
+        st.info("尚無數據")
