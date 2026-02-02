@@ -3,12 +3,11 @@ import random
 
 # 設定網頁標題與風格
 st.set_page_config(
-    unsafe_allow_html=True
     page_title="我們的 Python 課作品", 
     page_icon="🐍",
     layout="centered"
 )
-
+unsafe_allow_html=True
 # 初始化遊戲狀態（這是確保網頁不會報錯的關鍵）
 if "target_number" not in st.session_state:
     st.session_state.target_number = random.randint(1, 100)
