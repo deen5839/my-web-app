@@ -1,63 +1,55 @@
+import streamlit as st
 import random
-import sys
 
-def play_game():
-    """猜數字遊戲主程式"""
-    # 設定遊戲參數
-    min_num = 1
-    max_num = 100
-    target = random.randint(min_num, max_num)
-    attempts = 0
-    max_attempts = 7  # 給朋友 7 次機會，增加緊張感
+# 設定網頁標題與風格
+st.set_page_config(
+    page_title="我們的 Python 課作品", 
+    page_icon="🐍",
+    layout="centered"
+)
 
-    print("=" * 30)
-    print("      終極猜數字遊戲")
-    print("=" * 30)
-    print(f"我已經選好了一個 {min_num} 到 {max_num} 之間的數字。")
-    print(f"你有 {max_attempts} 次機會，挑戰看看吧！\n")
+# 初始化遊戲狀態（這是確保網頁不會報錯的關鍵）
+if "target_number" not in st.session_state:
+    st.session_state.target_number = random.randint(1, 100)
+if "counter" not in st.session_state:
+    st.session_state.counter = 0
+if "is_finished" not in st.session_state:
+    st.session_state.is_finished = False
+if "msg" not in st.session_state:
+    st.session_state.msg = "請在下方輸入 1~100 的數字開始遊戲！"
 
-    while attempts < max_attempts:
-        try:
-            # 取得玩家輸入
-            guess_input = input(f"第 {attempts + 1} 次嘗試 - 請輸入數字: ")
+def reset_game():
+    """重新開始遊戲的函式"""
+    st.session_state.target_number = random.randint(1, 100)
+    st.session_state.counter = 0
+    st.session_state.is_finished = False
+    st.session_state.msg = "遊戲已重置，請開始新的一局！"
 
-            # 讓玩家可以輸入 'q' 提早結束
-            if guess_input.lower() == 'q':
-                print("玩家選擇中途退出遊戲。")
-                break
+# UI 介面設計
+st.title("🐍 Python 課成果展示：猜數字遊戲")
+st.info(f"💡 目前狀態：{st.session_state.msg}")
 
-            guess = int(guess_input)
-            attempts += 1
+if not st.session_state.is_finished:
+    # 數字輸入框
+    user_input = st.number_input("你覺得是多少？", min_value=1, max_value=100, key="input_box")
+    
+    if st.button("我猜這個！", use_container_width=True):
+        st.session_state.counter += 1
+        if user_input < st.session_state.target_number:
+            st.session_state.msg = f"太小了！(已猜 {st.session_state.counter} 次)"
+        elif user_input > st.session_state.target_number:
+            st.session_state.msg = f"太大了！(已猜 {st.session_state.counter} 次)"
+        else:
+            st.session_state.msg = f"🎉 答對了！答案就是 {st.session_state.target_number}！"
+            st.session_state.is_finished = True
+            st.balloons()
+        st.rerun() # 強制刷新畫面顯示最新訊息
+else:
+    st.success(st.session_state.msg)
+    st.write(f"你總共花了 {st.session_state.counter} 次嘗試。")
+    if st.button("再玩一局", on_click=reset_game, use_container_width=True):
+        st.rerun()
 
-            # 檢查是否超出範圍
-            if guess < min_num or guess > max_num:
-                print(f"哎呀！請輸入 {min_num} 到 {max_num} 之間的數字。")
-                continue
-
-            # 判斷結果
-            if guess < target:
-                print("太小了！再大一點。\n")
-            elif guess > target:
-                print("太大了！再小一點。\n")
-            else:
-                print(f"\n🎉 厲害喔！你只花了 {attempts} 次就猜對了！")
-                print(f"正確答案就是: {target}")
-                return # 猜對了直接結束函數
-
-        except ValueError:
-            print("❌ 錯誤：請輸入『整數數字』，不要輸入文字或其他符號。\n")
-
-    if attempts >= max_attempts:
-        print("\n😱 殘念！機會用完囉。")
-        print(f"正確答案其實是: {target}")
-
-if __name__ == "__main__":
-    try:
-        play_game()
-    except KeyboardInterrupt:
-        print("\n遊戲被強制中止。")
-
-    # 這是打包成 .exe 的關鍵：防止程式跑完直接閃退
-    print("\n" + "=" * 30)
-    input("遊戲結束，按 Enter 鍵關閉視窗...")
-    sys.exit()
+# 頁尾資訊
+st.divider()
+st.caption("這是一個由 Streamlit 驅動的 Python 網頁應用程式。")
