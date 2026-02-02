@@ -10,7 +10,7 @@ st.set_page_config(
 
 # 套用一點 CSS 讓介面更有質感
 st.markdown(unsafe_allow_html=True)
-    <style>
+    
     .main {
         background-color: #f0f2f6;
     }
