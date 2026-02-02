@@ -8,6 +8,7 @@ st.set_page_config(
     layout="centered"
 )
 unsafe_allow_html=True
+
 # 初始化遊戲狀態（這是確保網頁不會報錯的關鍵）
 if "target_number" not in st.session_state:
     st.session_state.target_number = random.randint(1, 100)
