@@ -3,6 +3,7 @@ import random
 
 # 設定網頁標題與風格
 st.set_page_config(
+    unsafe_allow_html=True,
     page_title="AI 時代的猜數字", 
     page_icon="🤖",
     layout="centered"
@@ -24,7 +25,7 @@ st.markdown("""
         color: #ff4b4b;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """ )
 
 # 初始化遊戲狀態
 if "target" not in st.session_state:
