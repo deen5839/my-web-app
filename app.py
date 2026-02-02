@@ -3,6 +3,7 @@ import random
 
 # 設定網頁標題與風格
 st.set_page_config(
+    unsafe_allow_html=True
     page_title="我們的 Python 課作品", 
     page_icon="🐍",
     layout="centered"
