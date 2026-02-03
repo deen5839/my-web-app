@@ -74,31 +74,29 @@ with st.sidebar:
     st.header("📊 檔案導出")
     
     if st.session_state.records:
-        # 將資料轉為 DataFrame
         export_df = pd.DataFrame(st.session_state.records)
-        # 調整欄位順序與名稱，讓 Excel 看起來更整齊
         export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
         export_df.columns = ['日期', '收支類型', '分類', '金額', '備註']
         
-        # 製作 Excel 二進位流
+        # 改用 openpyxl 引擎，這是最通用的 Excel 引擎
         buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            export_df.to_excel(writer, index=False, sheet_name='記帳明細')
-            # 這裡可以自動調整欄寬 (選配)
-        
-        st.download_button(
-            label="📥 下載 Excel 備份檔",
-            data=buffer.getvalue(),
-            file_name=f"理財記錄_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        try:
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                export_df.to_excel(writer, index=False, sheet_name='記帳明細')
+            
+            st.download_button(
+                label="📥 下載 Excel 備份檔",
+                data=buffer.getvalue(),
+                file_name=f"理財記錄_{date.today()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        except Exception as e:
+            st.error("Excel 產生失敗，請確認是否安裝 openpyxl")
     else:
         st.info("尚無數據可導出")
-    
-    st.info("💡 下載後可用 Excel 或 Google 試算表開啟。")
 
-# 4. 數據預處理 (過濾搜尋結果)
+# 4. 數據預處理
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
@@ -122,6 +120,7 @@ with tab1:
     default_type_idx = 0 if not edit_data or edit_data['type'] == "支出" else 1
     r_type = st.radio("收支類型", ["支出", "收入"], index=default_type_idx, horizontal=True, key="main_type_radio")
 
+    # 按下儲存後，非編輯狀態會自動清空
     with st.form("input_form", clear_on_submit=(st.session_state.editing_id is None)):
         col1, col2 = st.columns(2)
         with col1:
@@ -132,11 +131,7 @@ with tab1:
             
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            if r_type == '收入':
-                categories = ['薪水', '獎金', '投資', '其他']
-            else:
-                categories = ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
-            
+            categories = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
@@ -148,7 +143,7 @@ with tab1:
         if submit_btn:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("數據已存檔！欄位已清空。")
+                st.success("數據已存檔並重置。")
                 st.rerun()
 
 # --- Tab 2: 分析 ---
@@ -166,8 +161,6 @@ with tab2:
         exp_data = df[df['type'] == '支出'].groupby('category')['amount'].sum()
         if not exp_data.empty:
             st.bar_chart(exp_data, use_container_width=True)
-        else:
-            st.info("尚無支出數據。")
     else:
         st.info("沒有數據。")
 
@@ -179,7 +172,7 @@ with tab3:
                 st.session_state.editing_id = None
                 st.rerun()
 
-        for _, row in df.sort_values(by='date', ascending=False).iterrows():
+        for _, row in df.sort_values(by=['date'], ascending=False).iterrows():
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                 st.write(f"備註: {row['note']}")
                 ec1, ec2 = st.columns(2)
@@ -190,5 +183,3 @@ with tab3:
                     st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                     app.save_data()
                     st.rerun()
-    else:
-        st.warning("清單為空。")
