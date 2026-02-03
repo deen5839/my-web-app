@@ -167,3 +167,25 @@ with tab3:
                     st.rerun()
     else:
         st.warning("清單為空。")
+# --- Tab 4: 備份 ---
+with tab4:
+    st.subheader("💾 數據導出 (CSV)")
+    if st.session_state.records:
+        df_all = pd.DataFrame(st.session_state.records)
+        csv_buffer = io.StringIO()
+        df_all.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+        csv_data = csv_buffer.getvalue()
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        st.download_button(
+            label="📥 下載全部紀錄 (.csv)",
+            data=csv_data,
+            file_name=f"finance_backup_{timestamp}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.warning("目前沒有數據可供導出。")
+
+st.divider()
+st.caption("AI 帳本穩定運作中 | 搜尋功能整合於數據分頁 ✅")
