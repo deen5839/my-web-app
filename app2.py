@@ -3,9 +3,14 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, date
+import io
 
 # 1. 網頁初始設定
-st.set_page_config(page_title="個人理財數據帳本", page_icon="💰", layout="wide")
+st.set_page_config(
+    page_title="個人理財數據帳本", 
+    page_icon="💰", 
+    layout="wide"
+)
 
 # 2. 數據處理核心
 class WebAccounting:
@@ -25,45 +30,91 @@ class WebAccounting:
         return []
 
     def save_data(self):
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
+        try:
+            with open(self.filename, 'w', encoding='utf-8') as f:
+                json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            st.error(f"數據存入失敗：{e}")
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
             for r in st.session_state.records:
                 if r['id'] == st.session_state.editing_id:
-                    r.update({'date': r_date.strftime('%Y-%m-%d'), 'type': r_type, 'amount': amount, 'category': category, 'note': note})
+                    r.update({
+                        'date': r_date.strftime('%Y-%m-%d'),
+                        'type': r_type,
+                        'amount': amount,
+                        'category': category,
+                        'note': note
+                    })
                     break
             st.session_state.editing_id = None
         else:
             new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
-            st.session_state.records.append({'id': new_id, 'date': r_date.strftime('%Y-%m-%d'), 'type': r_type, 'amount': amount, 'category': category, 'note': note})
+            st.session_state.records.append({
+                'id': new_id,
+                'date': r_date.strftime('%Y-%m-%d'),
+                'type': r_type,
+                'amount': amount,
+                'category': category,
+                'note': note
+            })
         self.save_data()
 
-# 初始化 App
 if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 app = st.session_state.app
 
-# --- Tab 1: 記帳 (核心修復區) ---
+# 3. 側邊欄：搜尋與備份 (找回失蹤的左上角選項)
+with st.sidebar:
+    st.header("🔍 數據管理")
+    
+    # 全域搜尋
+    search_query = st.text_input("關鍵字搜尋", placeholder="例如：午餐...", key="sidebar_search")
+    
+    st.divider()
+    st.header("💾 數據備份")
+    
+    # 導出 JSON 檔案
+    if st.session_state.records:
+        json_str = json.dumps(st.session_state.records, ensure_ascii=False, indent=2)
+        st.download_button(
+            label="📥 下載備份檔案 (JSON)",
+            data=json_str,
+            file_name=f"accounting_backup_{date.today()}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+    
+    st.info("💡 建議定期備份數據，確保資產記錄安全。")
+
+# 4. 數據預處理 (過濾搜尋結果)
+df = pd.DataFrame(st.session_state.records)
+if not df.empty:
+    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+    if search_query:
+        df = df[
+            df['note'].str.contains(search_query, na=False, case=False) | 
+            df['category'].str.contains(search_query, na=False, case=False)
+        ]
+
+# 5. UI 主介面
 st.title("💰 個人理財：數據記錄帳本")
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
+# --- Tab 1: 記帳 ---
 with tab1:
-    # 取得編輯資料
     edit_data = None
     if st.session_state.editing_id:
         edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None)
-        st.warning(f"🔧 編輯模式：ID #{st.session_state.editing_id}")
+        st.warning(f"🔧 正在編輯 ID #{st.session_state.editing_id}")
 
-    # --- 關鍵修正：將類型選單放在 Form 外面，確保連動反應 ---
-    col_t1, col_t2 = st.columns([1, 1])
-    with col_t1:
-        # 使用 Session State 來控管類型，確保切換時立刻觸發畫面重繪
-        default_type_idx = 0 if not edit_data or edit_data['type'] == "支出" else 1
-        r_type = st.radio("收支類型", ["支出", "收入"], index=default_type_idx, horizontal=True, key="type_selector")
+    # 類型選擇放在 Form 外，確保分類連動
+    default_type_idx = 0 if not edit_data or edit_data['type'] == "支出" else 1
+    r_type = st.radio("收支類型", ["支出", "收入"], index=default_type_idx, horizontal=True, key="main_type_radio")
 
-    with st.form("accounting_form", clear_on_submit=(st.session_state.editing_id is None)):
+    # 存檔後自動歸零 (非編輯模式時才 clear_on_submit)
+    with st.form("input_form", clear_on_submit=(st.session_state.editing_id is None)):
         col1, col2 = st.columns(2)
         with col1:
             default_date = date.today()
@@ -74,7 +125,7 @@ with tab1:
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
             
-            # 根據 Form 外的 r_type 動態決定選單
+            # 動態分類
             if r_type == '收入':
                 categories = ['薪水', '獎金', '投資', '其他']
             else:
@@ -91,43 +142,48 @@ with tab1:
         if submit_btn:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("存檔成功！欄位已重置。")
+                st.success("數據已存檔！欄位已自動清空。")
                 st.rerun()
-            else:
-                st.error("請輸入正確金額")
 
-# --- Tab 2 & 3 (保持簡潔穩定) ---
-df = pd.DataFrame(st.session_state.records)
+# --- Tab 2: 分析 (修復滑動跑版) ---
 with tab2:
     if not df.empty:
-        df['amount'] = pd.to_numeric(df['amount'])
         c1, c2, c3 = st.columns(3)
         inc = df[df['type'] == '收入']['amount'].sum()
         exp = df[df['type'] == '支出']['amount'].sum()
-        c1.metric("總收入", f"${inc:,.0f}")
-        c2.metric("總支出", f"${exp:,.0f}")
-        c3.metric("淨額", f"${inc-exp:,.0f}")
+        c1.metric("搜尋結果收入", f"${inc:,.0f}")
+        c2.metric("搜尋結果支出", f"${exp:,.0f}")
+        c3.metric("餘額", f"${inc-exp:,.0f}")
         
-        st.subheader("📊 分類支出圖表")
-        exp_df = df[df['type'] == '支出'].groupby('category')['amount'].sum()
-        if not exp_df.empty:
-            st.bar_chart(exp_df, use_container_width=True) # 強制容器寬度，防止滑動跑版
+        st.divider()
+        st.subheader("📌 支出佔比分析")
+        exp_data = df[df['type'] == '支出'].groupby('category')['amount'].sum()
+        if not exp_data.empty:
+            # 使用固定容器寬度防止手機滑動亂跑
+            st.bar_chart(exp_data, use_container_width=True)
+        else:
+            st.info("尚無支出數據可供分析。")
     else:
-        st.info("尚無數據")
+        st.info("沒有數據可顯示。")
 
+# --- Tab 3: 歷史清單 ---
 with tab3:
     if not df.empty:
         if st.session_state.editing_id:
-            if st.button("取消編輯"):
+            if st.button("❌ 取消編輯模式"):
                 st.session_state.editing_id = None
                 st.rerun()
+
         for _, row in df.sort_values(by='date', ascending=False).iterrows():
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
-                c1, c2 = st.columns(2)
-                if c1.button("✏️", key=f"e_{row['id']}"):
+                st.write(f"備註: {row['note']}")
+                ec1, ec2 = st.columns(2)
+                if ec1.button("✏️ 編輯", key=f"edit_btn_{row['id']}"):
                     st.session_state.editing_id = row['id']
                     st.rerun()
-                if c2.button("🗑️", key=f"d_{row['id']}"):
+                if ec2.button("🗑️ 刪除", key=f"del_btn_{row['id']}"):
                     st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                     app.save_data()
                     st.rerun()
+    else:
+        st.warning("清單為空。")
