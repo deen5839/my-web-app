@@ -7,49 +7,41 @@ from datetime import datetime, date
 # 1. 網頁初始設定
 st.set_page_config(
     page_title="理財數據帳本 Pro", 
-    page_icon="💎", 
+    page_icon="💰", 
     layout="wide",
-    initial_sidebar_state="collapsed" # 手機版預設縮起側邊欄，減少視覺干擾
+    initial_sidebar_state="collapsed"
 )
 
-# 穩定 UI 的 CSS
+# 修正後的 CSS (參數名稱正確版)
 st.markdown("""
     <style>
-    /* 防止圖表容器跳動 */
-    .chart-container {
-        min-height: 400px;
+    /* 強化手機版顯示與滑動穩定性 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
     }
-    /* 優化手機點擊區域 */
-    .stButton button {
-        height: 3em;
-        margin-top: 10px;
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 5px 5px 0px 0px;
+        padding: 5px 15px;
     }
-    /* 強化卡片感 */
-    [data-testid="stMetric"] {
-        background-color: #ffffff;
-        border: 1px solid #e6e9ef;
-        padding: 15px;
-        border-radius: 10px;
+    /* 避免圖表區塊高度塌陷導致滑動亂跑 */
+    .chart-box {
+        min-height: 350px;
     }
     </style>
-    """, unsafe_content_label=True)
+    """, unsafe_allow_html=True)
 
-# 2. 數據處理核心
+# 2. 數據核心邏輯
 class WebAccounting:
     def __init__(self):
         self.filename = 'accounting_data.json'
         if 'records' not in st.session_state:
-            st.session_state.records = self.load_data()
-        
-        # 初始化表單狀態鍵值，用於歸零
-        if 'form_amount' not in st.session_state:
-            self.reset_form_state()
-
-    def reset_form_state(self):
-        st.session_state.form_amount = 0.0
-        st.session_state.form_note = ""
-        st.session_state.form_category = "其他"
-        st.session_state.editing_id = None
+            self.records = self.load_data()
+            st.session_state.records = self.records
+        else:
+            self.records = st.session_state.records
 
     def load_data(self):
         if os.path.exists(self.filename):
@@ -65,27 +57,20 @@ class WebAccounting:
             with open(self.filename, 'w', encoding='utf-8') as f:
                 json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            st.error(f"數據存入失敗：{e}")
+            st.error(f"儲存失敗：{e}")
 
-    def add_or_update_record(self, r_date, r_type, amount, category, note):
-        if st.session_state.editing_id is not None:
-            for r in st.session_state.records:
-                if r['id'] == st.session_state.editing_id:
-                    r.update({
-                        'date': r_date.strftime('%Y-%m-%d'),
-                        'type': r_type, 'amount': amount,
-                        'category': category, 'note': note
-                    })
-                    break
-        else:
-            new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
-            st.session_state.records.append({
-                'id': new_id, 'date': r_date.strftime('%Y-%m-%d'),
-                'type': r_type, 'amount': amount,
-                'category': category, 'note': note
-            })
+    def add_record(self, r_date, r_type, amount, category, note):
+        new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
+        new_data = {
+            'id': new_id,
+            'date': r_date.strftime('%Y-%m-%d'),
+            'type': r_type,
+            'amount': float(amount),
+            'category': category,
+            'note': note
+        }
+        st.session_state.records.append(new_data)
         self.save_data()
-        self.reset_form_state() # 儲存後立即歸零
 
     def delete_record(self, r_id):
         st.session_state.records = [r for r in st.session_state.records if r['id'] != r_id]
@@ -93,105 +78,90 @@ class WebAccounting:
 
 app = WebAccounting()
 
-# 3. 頂部導航與搜尋
-search_query = st.query_params.get("q", "")
-
-# 4. 主介面設計
+# 3. 標題與數據整理
 st.title("💰 理財數據帳本 Pro")
 
-# 數據計算
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = pd.to_numeric(df['amount'])
     df['date'] = pd.to_datetime(df['date'])
     
-    # 搜尋過濾
-    if search_query:
-        df = df[df['note'].str.contains(search_query, na=False, case=False) | 
-                df['category'].str.contains(search_query, na=False, case=False)]
-
-    # 統計指標
+    # 頂部統計指標
     t_income = df[df['type'] == '收入']['amount'].sum()
     t_expense = df[df['type'] == '支出']['amount'].sum()
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("總收入", f"${t_income:,.0f}")
-    m2.metric("總支出", f"${t_expense:,.0f}", delta=f"-{t_expense:,.0f}", delta_color="inverse")
-    m3.metric("本期結餘", f"${t_income - t_expense:,.0f}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("總收入", f"${t_income:,.0f}")
+    col2.metric("總支出", f"${t_expense:,.0f}", delta=f"-{t_expense:,.0f}", delta_color="inverse")
+    col3.metric("結餘", f"${t_income - t_expense:,.0f}")
 
 st.divider()
 
-# 分頁標籤
-tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📊 數據分析", "📋 歷史明細"])
+# 4. 功能分頁
+tab1, tab2, tab3 = st.tabs(["➕ 記帳", "📊 分析", "📋 明細"])
 
-# --- Tab 1: 記帳 (解決歸零問題) ---
 with tab1:
-    with st.form("accounting_form", clear_on_submit=True):
-        st.subheader("新增紀錄")
+    # 使用 clear_on_submit 確保儲存後「歸零」
+    with st.form("my_form", clear_on_submit=True):
+        st.subheader("新增收支紀錄")
         c1, c2 = st.columns(2)
         with c1:
             r_date = st.date_input("日期", date.today())
             r_type = st.radio("類型", ["支出", "收入"], horizontal=True)
         with c2:
-            # 使用 form 內的元件，儲存後會自動重置 UI
-            amount = st.number_input("金額 (TWD)", min_value=0.0, step=100.0, key="input_amount")
-            categories = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '住房', '其他']
-            category = st.selectbox("分類", categories)
+            amount = st.number_input("金額", min_value=0.0, step=100.0)
+            cats = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '住房', '其他']
+            category = st.selectbox("分類", cats)
         
-        note = st.text_input("備註 (例如：午餐、股票分紅)", key="input_note")
+        note = st.text_input("備註")
+        submitted = st.form_submit_button("✅ 儲存並歸零", use_container_width=True)
         
-        submitted = st.form_submit_button("✅ 儲存數據", use_container_width=True)
         if submitted:
             if amount > 0:
-                app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("紀錄成功！欄位已重置。")
+                app.add_record(r_date, r_type, amount, category, note)
+                st.success("數據已存入帳本！")
                 st.rerun()
             else:
-                st.error("請輸入大於 0 的金額")
+                st.warning("請輸入有效金額")
 
-# --- Tab 2: 分析 (解決佈局亂跑問題) ---
 with tab2:
     if not df.empty:
-        # 使用容器固定圖表，避免滑動時內容閃爍
-        with st.container():
-            st.subheader("支出分佈 (按類別)")
-            exp_df = df[df['type'] == '支出']
-            if not exp_df.empty:
-                # 簡單穩定的圖表，適合手機閱讀
-                chart_data = exp_df.groupby('category')['amount'].sum().sort_values(ascending=False)
-                st.bar_chart(chart_data, color="#FF4B4B")
-            else:
-                st.info("尚無支出數據可供分析")
+        st.subheader("支出分類佔比")
+        exp_df = df[df['type'] == '支出']
+        if not exp_df.empty:
+            # 簡化統計邏輯，避免畫面亂跑
+            pie_data = exp_df.groupby('category')['amount'].sum()
+            # 使用橫向條形圖在手機上更穩定
+            st.bar_chart(pie_data, horizontal=True)
+        else:
+            st.info("尚無支出紀錄")
             
-            st.divider()
-            
-            st.subheader("每日收支趨勢")
-            trend_df = df.pivot_table(index='date', columns='type', values='amount', aggfunc='sum').fillna(0)
-            st.line_chart(trend_df)
+        st.divider()
+        st.subheader("收支趨勢")
+        trend = df.pivot_table(index='date', columns='type', values='amount', aggfunc='sum').fillna(0)
+        st.line_chart(trend)
     else:
-        st.info("尚未有數據，請先前往記帳。")
+        st.info("暫無數據")
 
-# --- Tab 3: 明細 ---
 with tab3:
     if not df.empty:
-        # 搜尋功能
-        s_input = st.text_input("🔍 搜尋明細", value=search_query, placeholder="輸入關鍵字...")
-        if s_input != search_query:
-            st.query_params["q"] = s_input
-            st.rerun()
-
-        # 顯示明細表
-        display_df = df.sort_values('date', ascending=False).copy()
-        display_df['date'] = display_df['date'].dt.strftime('%Y-%m-%d')
+        # 簡單的搜尋功能
+        search = st.text_input("🔍 搜尋備註...")
+        view_df = df.copy()
+        if search:
+            view_df = view_df[view_df['note'].str.contains(search, na=False)]
         
-        for idx, row in display_df.iterrows():
-            with st.expander(f"{row['date']} | {row['type']} | {row['category']} | ${row['amount']:,.0f}"):
-                st.write(f"**備註：** {row['note'] if row['note'] else '無'}")
-                if st.button("🗑️ 刪除", key=f"del_{row['id']}", use_container_width=True):
+        # 倒序顯示最新明細
+        view_df = view_df.sort_values('date', ascending=False)
+        for _, row in view_df.iterrows():
+            with st.expander(f"{row['date'].strftime('%Y-%m-%d')} | {row['category']} | ${row['amount']:,.0f}"):
+                st.write(f"類型：{row['type']}")
+                st.write(f"備註：{row['note']}")
+                if st.button("刪除此筆", key=f"del_{row['id']}"):
                     app.delete_record(row['id'])
                     st.rerun()
     else:
-        st.write("清單空空如也。")
+        st.write("目前沒有紀錄")
 
 st.markdown("---")
-st.caption("理財帳本穩定版 - 祝您心情愉快")
+st.caption("我要精準理財，祝您天天快樂！")
