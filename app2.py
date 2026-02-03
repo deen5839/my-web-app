@@ -3,7 +3,6 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, date
-import io  # 確保導入此模組，修復 NameError
 
 # 1. 網頁初始設定
 st.set_page_config(
@@ -192,6 +191,11 @@ with tab2:
 
 st.divider()
 st.caption("AI 帳本穩定運作中 | 修正 Widget 索引連動問題 ✅")
+
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+import io  # 確保導入此模組，修復 NameError
 # 初始化 Session State (用於存儲搜尋紀錄)
 if 'search_history' not in st.session_state:
     st.session_state.search_history = []
