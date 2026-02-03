@@ -67,19 +67,17 @@ class WebAccounting:
 
 app = WebAccounting()
 
-# 3. 穩定搜尋與同步邏輯 (使用 Query Params)
-# 這能防止輸入時焦點跳掉的問題
+# 3. 穩定搜尋與同步邏輯
 search_query = st.query_params.get("q", "")
 
-# 4. 側邊欄：全域搜尋與導覽
+# 4. 側邊欄：搜尋與 Excel 導出
 with st.sidebar:
-    st.header("🔍 全域搜尋")
-    # 使用 key="search_input" 配合 on_change 來保持狀態
+    st.header("🔍 數據搜尋")
     def update_search():
         st.query_params["q"] = st.session_state.search_input
 
     new_q = st.text_input(
-        "關鍵字搜尋 (所有分頁生效)", 
+        "關鍵字搜尋", 
         value=search_query,
         key="search_input",
         on_change=update_search,
@@ -87,14 +85,41 @@ with st.sidebar:
     )
     
     st.divider()
-    st.info("💡 搜尋功能現在固定在側邊欄，確保任何時候都能輸入。")
+    st.header("💾 備份與導出")
+    
+    # 處理導出 Excel 的邏輯
+    if st.session_state.records:
+        export_df = pd.DataFrame(st.session_state.records)
+        # 重新排序欄位方便閱讀
+        export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
+        export_df.columns = ['日期', '類型', '分類', '金額', '備註']
+        
+        # 使用 BytesIO 建立 Excel 緩衝區，避免亂碼
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            export_df.to_excel(writer, index=False, sheet_name='理財紀錄')
+            # 這裡可以自動調整欄寬
+            worksheet = writer.sheets['理財紀錄']
+            for i, col in enumerate(export_df.columns):
+                column_len = max(export_df[col].astype(str).map(len).max(), len(col)) + 2
+                worksheet.set_column(i, i, column_len)
+        
+        st.download_button(
+            label="📥 下載 Excel 備份 (不亂碼版)",
+            data=buffer.getvalue(),
+            file_name=f"理財帳本備份_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        st.info("目前尚無數據可備份")
 
 # 5. 網頁 UI 主介面
 st.title("💰 個人理財：數據記錄帳本")
 
-tab1, tab2, tab3, tab4 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單","備份"])
+tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
-# 獲取過濾後的數據
+# 獲取數據
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = df['amount'].astype(float)
@@ -167,25 +192,3 @@ with tab3:
                     st.rerun()
     else:
         st.warning("清單為空。")
-# --- Tab 4: 備份 ---
-with tab4:
-    st.subheader("💾 數據導出 (CSV)")
-    if st.session_state.records:
-        df_all = pd.DataFrame(st.session_state.records)
-        csv_buffer = io.StringIO()
-        df_all.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-        csv_data = csv_buffer.getvalue()
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        st.download_button(
-            label="📥 下載全部紀錄 (.csv)",
-            data=csv_data,
-            file_name=f"finance_backup_{timestamp}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    else:
-        st.warning("目前沒有數據可供導出。")
-
-st.divider()
-st.caption("AI 帳本穩定運作中 | 搜尋功能整合於數據分頁 ✅")
