@@ -65,28 +65,38 @@ if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 app = st.session_state.app
 
-# 3. 側邊欄：搜尋與備份 (找回失蹤的左上角選項)
+# 3. 側邊欄：搜尋與 Excel 備份
 with st.sidebar:
     st.header("🔍 數據管理")
-    
-    # 全域搜尋
-    search_query = st.text_input("關鍵字搜尋", placeholder="例如：午餐...", key="sidebar_search")
+    search_query = st.text_input("關鍵字搜尋", placeholder="搜尋備註或分類...", key="sidebar_search")
     
     st.divider()
-    st.header("💾 數據備份")
+    st.header("📊 檔案導出")
     
-    # 導出 JSON 檔案
     if st.session_state.records:
-        json_str = json.dumps(st.session_state.records, ensure_ascii=False, indent=2)
+        # 將資料轉為 DataFrame
+        export_df = pd.DataFrame(st.session_state.records)
+        # 調整欄位順序與名稱，讓 Excel 看起來更整齊
+        export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
+        export_df.columns = ['日期', '收支類型', '分類', '金額', '備註']
+        
+        # 製作 Excel 二進位流
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            export_df.to_excel(writer, index=False, sheet_name='記帳明細')
+            # 這裡可以自動調整欄寬 (選配)
+        
         st.download_button(
-            label="📥 下載備份檔案 (JSON)",
-            data=json_str,
-            file_name=f"accounting_backup_{date.today()}.json",
-            mime="application/json",
+            label="📥 下載 Excel 備份檔",
+            data=buffer.getvalue(),
+            file_name=f"理財記錄_{date.today()}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
+    else:
+        st.info("尚無數據可導出")
     
-    st.info("💡 建議定期備份數據，確保資產記錄安全。")
+    st.info("💡 下載後可用 Excel 或 Google 試算表開啟。")
 
 # 4. 數據預處理 (過濾搜尋結果)
 df = pd.DataFrame(st.session_state.records)
@@ -109,11 +119,9 @@ with tab1:
         edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None)
         st.warning(f"🔧 正在編輯 ID #{st.session_state.editing_id}")
 
-    # 類型選擇放在 Form 外，確保分類連動
     default_type_idx = 0 if not edit_data or edit_data['type'] == "支出" else 1
     r_type = st.radio("收支類型", ["支出", "收入"], index=default_type_idx, horizontal=True, key="main_type_radio")
 
-    # 存檔後自動歸零 (非編輯模式時才 clear_on_submit)
     with st.form("input_form", clear_on_submit=(st.session_state.editing_id is None)):
         col1, col2 = st.columns(2)
         with col1:
@@ -124,8 +132,6 @@ with tab1:
             
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            
-            # 動態分類
             if r_type == '收入':
                 categories = ['薪水', '獎金', '投資', '其他']
             else:
@@ -142,10 +148,10 @@ with tab1:
         if submit_btn:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("數據已存檔！欄位已自動清空。")
+                st.success("數據已存檔！欄位已清空。")
                 st.rerun()
 
-# --- Tab 2: 分析 (修復滑動跑版) ---
+# --- Tab 2: 分析 ---
 with tab2:
     if not df.empty:
         c1, c2, c3 = st.columns(3)
@@ -159,12 +165,11 @@ with tab2:
         st.subheader("📌 支出佔比分析")
         exp_data = df[df['type'] == '支出'].groupby('category')['amount'].sum()
         if not exp_data.empty:
-            # 使用固定容器寬度防止手機滑動亂跑
             st.bar_chart(exp_data, use_container_width=True)
         else:
-            st.info("尚無支出數據可供分析。")
+            st.info("尚無支出數據。")
     else:
-        st.info("沒有數據可顯示。")
+        st.info("沒有數據。")
 
 # --- Tab 3: 歷史清單 ---
 with tab3:
