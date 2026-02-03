@@ -6,7 +6,7 @@ from datetime import datetime, date
 
 # 1. 網頁初始設定
 st.set_page_config(
-    page_title="個人理財數據載體", 
+    page_title="個人理財數據帳本", 
     page_icon="💰", 
     layout="wide"
 )
@@ -46,7 +46,7 @@ class WebAccounting:
         return []
 
     def clean_date(self, date_str):
-        """處理舊載體中可能存在的不同日期格式"""
+        """處理舊帳本中可能存在的不同日期格式"""
         try:
             # 嘗試長格式 (含時間)
             return datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
@@ -63,7 +63,7 @@ class WebAccounting:
             with open(self.filename, 'w', encoding='utf-8') as f:
                 json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            st.error(f"存入載體失敗：{e}")
+            st.error(f"存入檔案失敗：{e}")
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         date_str = r_date.strftime('%Y-%m-%d')
@@ -97,7 +97,7 @@ class WebAccounting:
 app = WebAccounting()
 
 # 4. 網頁 UI 佈局
-st.title("💰 個人理財：數據記錄載體")
+st.title("💰 個人理財：數據記錄帳本")
 
 tab1, tab2 = st.tabs(["➕ 帳務輸入/編輯", "📊 數據分析與管理"])
 
@@ -136,7 +136,7 @@ with tab1:
             category = st.selectbox("分類", categories, index=cat_idx)
             note = st.text_input("備註 (可選)", value=edit_data['note'] if edit_data else "")
 
-        submitted = st.form_submit_button("🚀 存入載體", use_container_width=True)
+        submitted = st.form_submit_button("🚀 存入檔案", use_container_width=True)
         if submitted:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
@@ -184,4 +184,4 @@ with tab2:
         st.info("尚無數據。")
 
 st.divider()
-st.caption("AI 載體格式自動校正系統  🚀")
+st.caption("AI 檔案格式自動校正系統  🚀")
