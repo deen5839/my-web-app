@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. CSS 注入
+# 2. CSS 注入：美化介面
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden !important;}
@@ -27,10 +27,16 @@ st.markdown("""
     .stApp {
         background-color: #f0f2f6 !important;
     }
+    .search-box {
+        background-color: #e0e7ff;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. 資料處理核心 (WebAccounting Class)
+# 3. 資料處理核心
 class WebAccounting:
     def __init__(self):
         self.filename = 'accounting_data.json'
@@ -85,25 +91,11 @@ class WebAccounting:
         st.session_state.records = [r for r in st.session_state.records if r['id'] != r_id]
         self.save_data()
 
-# 初始化 App
 app = WebAccounting()
 
-# 4. 側邊欄：搜尋與紀錄 (這就是你消失的搜尋功能)
-st.sidebar.header("🔍 數據搜尋中心")
-search_query = st.sidebar.text_input("搜尋備註或分類...", key="search_input")
-
-if st.sidebar.button("執行搜尋"):
-    if search_query and search_query not in st.session_state.search_history:
-        st.session_state.search_history.insert(0, search_query)
-        st.session_state.search_history = st.session_state.search_history[:10]
-
-if st.session_state.search_history:
-    st.sidebar.write("最近搜尋紀錄：")
-    for h in st.session_state.search_history:
-        st.sidebar.text(f"📌 {h}")
-
-# 5. 網頁 UI 主介面
+# 4. 網頁 UI 主介面
 st.title("💰 個人理財：數據記錄帳本")
+st.write(f"目前狀態：搜尋功能已移至「數據清單」分頁中")
 
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據清單與分析", "💾 備份導出"])
 
@@ -159,65 +151,87 @@ with tab1:
                 st.session_state.editing_id = None
                 st.rerun()
 
-# --- Tab 2: 分析與明細 ---
+# --- Tab 2: 分析與明細 (搜尋功能就在這！) ---
 with tab2:
     if st.session_state.records:
+        # 搜尋區域設計
+        st.markdown('<div class="search-box">', unsafe_allow_html=True)
+        col_search, col_history = st.columns([3, 1])
+        
+        with col_search:
+            q = st.text_input("🔍 搜尋關鍵字 (搜尋備註、分類、收支類型...)", placeholder="輸入關鍵字如：午餐")
+        
+        with col_history:
+            if st.button("記錄搜尋", use_container_width=True):
+                if q and q not in st.session_state.search_history:
+                    st.session_state.search_history.insert(0, q)
+                    st.session_state.search_history = st.session_state.search_history[:5]
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.session_state.search_history:
+            st.caption(f"歷史搜尋：{', '.join(st.session_state.search_history)}")
+
+        # 數據轉換與過濾
         df = pd.DataFrame(st.session_state.records)
         df['amount'] = df['amount'].astype(float)
         
-        # 搜尋過濾邏輯
-        display_df = df.copy()
-        if search_query:
-            display_df = df[df['note'].str.contains(search_query, na=False) | 
-                            df['category'].str.contains(search_query, na=False)]
+        # 核心搜尋過濾邏輯
+        if q:
+            display_df = df[
+                df['note'].str.contains(q, na=False, case=False) | 
+                df['category'].str.contains(q, na=False, case=False) |
+                df['type'].str.contains(q, na=False, case=False)
+            ]
+        else:
+            display_df = df
         
+        # 指標顯示
         income = display_df[display_df['type'] == '收入']['amount'].sum()
         expense = display_df[display_df['type'] == '支出']['amount'].sum()
         
         c1, c2, c3 = st.columns(3)
-        c1.metric("總收入", f"${income:,.0f}")
-        c2.metric("總支出", f"${expense:,.0f}")
-        c3.metric("淨資產", f"${income - expense:,.0f}")
+        c1.metric("顯示收入總計", f"${income:,.0f}")
+        c2.metric("顯示支出總計", f"${expense:,.0f}")
+        c3.metric("顯示小計", f"${income - expense:,.0f}")
         
         st.divider()
         
         # 顯示歷史清單
-        for index, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
-            with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
-                st.write(f"備註：{row['note']}")
-                ec1, ec2 = st.columns(2)
-                if ec1.button("✏️ 修正", key=f"e_{row['id']}"):
-                    st.session_state.editing_id = row['id']
-                    st.rerun()
-                if ec2.button("🗑️ 刪除", key=f"d_{row['id']}"):
-                    app.delete_record(row['id'])
-                    st.rerun()
+        if not display_df.empty:
+            for index, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
+                with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
+                    st.write(f"備註：{row['note']}")
+                    ec1, ec2 = st.columns(2)
+                    if ec1.button("✏️ 修正", key=f"e_{row['id']}"):
+                        st.session_state.editing_id = row['id']
+                        st.rerun()
+                    if ec2.button("🗑️ 刪除", key=f"d_{row['id']}"):
+                        app.delete_record(row['id'])
+                        st.rerun()
+        else:
+            st.warning("查無符合條件的數據。")
     else:
         st.info("帳本內尚無紀錄。")
 
 # --- Tab 3: 備份 ---
 with tab3:
-    st.subheader("💾 數據導出")
+    st.subheader("💾 數據導出 (CSV)")
     if st.session_state.records:
-        try:
-            df_all = pd.DataFrame(st.session_state.records)
-            csv_buffer = io.StringIO()
-            df_all.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-            csv_data = csv_buffer.getvalue()
+        df_all = pd.DataFrame(st.session_state.records)
+        csv_buffer = io.StringIO()
+        df_all.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+        csv_data = csv_buffer.getvalue()
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            st.download_button(
-                label="📥 下載全部紀錄 (.csv)",
-                data=csv_data,
-                file_name=f"finance_backup_{timestamp}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-            st.success("點擊上方按鈕即可導出 CSV 檔案。")
-        except Exception as e:
-            st.error(f"備份產生失敗：{e}")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        st.download_button(
+            label="📥 下載全部紀錄 (.csv)",
+            data=csv_data,
+            file_name=f"finance_backup_{timestamp}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     else:
         st.warning("目前沒有數據可供導出。")
 
 st.divider()
-st.caption("AI 帳本穩定運作中 | 搜尋與備份功能已整合完成 ✅")
+st.caption("AI 帳本穩定運作中 | 搜尋功能整合於數據分頁 ✅")
