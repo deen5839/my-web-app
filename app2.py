@@ -139,7 +139,7 @@ with tab1:
             note = st.text_input("備註內容", value=default_note)
 
         # 提交按鈕
-        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入載體"
+        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入檔案"
         if st.form_submit_button(submit_label, use_container_width=True):
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
