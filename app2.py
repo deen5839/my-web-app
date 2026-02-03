@@ -190,4 +190,82 @@ with tab2:
         st.info("帳本內尚無紀錄。")
 
 st.divider()
-st.caption("AI 載體穩定運作中 | 修正 Widget 索引連動問題 ✅")
+st.caption("AI 帳本穩定運作中 | 修正 Widget 索引連動問題 ✅")
+
+# 初始化 Session State (用於存儲搜尋紀錄)
+if 'search_history' not in st.session_state:
+    st.session_state.search_history = []
+
+if 'financial_data' not in st.session_state:
+    # 預設一些模擬數據，你可以替換成你原本的資料邏輯
+    st.session_state.financial_data = pd.DataFrame({
+        '日期': ['2024-01-01', '2024-01-10', '2024-02-01'],
+        '項目': ['台積電股息', '生活開銷', '輝達股票回報'],
+        '金額': [5000, -2000, 15000]
+    })
+
+def main():
+    st.set_page_config(page_title="理財帳本 - 增強版", layout="wide")
+    
+    st.title("🐍 Python 理財帳本：備份與紀錄功能")
+    st.write(f"目前狀態：穩定運作中 | 使用者 ID: 同學你辛苦了")
+
+    # --- 側邊欄：搜尋紀錄 ---
+    st.sidebar.header("🔍 搜尋紀錄")
+    search_query = st.sidebar.text_input("搜尋項目內容...", key="search_input")
+    
+    if st.sidebar.button("執行搜尋"):
+        if search_query:
+            # 紀錄搜尋字眼，不重複記錄
+            if search_query not in st.session_state.search_history:
+                st.session_state.search_history.insert(0, search_query)
+                # 只保留最近 10 筆紀錄
+                st.session_state.search_history = st.session_state.search_history[:10]
+
+    # 顯示歷史紀錄點擊功能 (選用)
+    if st.session_state.search_history:
+        st.sidebar.write("最近搜尋：")
+        for h in st.session_state.search_history:
+            if st.sidebar.button(f"📌 {h}", key=f"hist_{h}"):
+                search_query = h # 這裡可以用於自動填入搜尋框
+
+    # --- 主介面：數據顯示與備份 ---
+    st.subheader("📊 理財數據清單")
+    
+    # 根據搜尋過濾資料
+    df = st.session_state.financial_data
+    if search_query:
+        filtered_df = df[df['項目'].str.contains(search_query, na=False)]
+    else:
+        filtered_df = df
+
+    st.dataframe(filtered_df, use_container_width=True)
+
+    st.divider()
+
+    # --- 備份功能區 ---
+    st.subheader("💾 數據備份與導出")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write("將目前的理財資料備份至本地電腦 (CSV 格式)")
+        
+        # 將 DataFrame 轉為 CSV 緩衝區
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+        csv_data = csv_buffer.getvalue()
+
+        # 下載按鈕
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        st.download_button(
+            label="立即下載備份檔案 (.csv)",
+            data=csv_data,
+            file_name=f"financial_backup_{timestamp}.csv",
+            mime="text/csv",
+        )
+
+    with col2:
+        st.info("助教提醒：建議每週備份一次，確保您的 AI 財富紀錄永不丟失！")
+
+if __name__ == "__main__":
+    main()
