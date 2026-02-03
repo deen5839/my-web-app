@@ -145,7 +145,7 @@ with tab1:
 
         # 提交與放棄按鈕
         btn_col_a, btn_col_b = st.columns(2)
-        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入載體"
+        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入檔案"
         
         if btn_col_a.button(submit_label, use_container_width=True, type="primary"):
             if amount > 0:
