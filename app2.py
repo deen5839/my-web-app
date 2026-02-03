@@ -11,15 +11,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 強力 CSS 注入 (讓介面變漂亮，且隱藏那些多餘的按鈕)
-hide_ui_style = """
+# 2. 強力 CSS 注入 (讓介面變漂亮，且隱藏多餘 UI)
+st.markdown("""
     <style>
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
-    [data-testid="manage-app-button"] {display: none !important;}
-    .stAppDeployButton {display: none !important;}
-    
     .stMetric {
         background-color: #ffffff !important;
         padding: 20px !important;
@@ -30,10 +27,9 @@ hide_ui_style = """
         background-color: #f0f2f6 !important;
     }
     </style>
-"""
-st.markdown(hide_ui_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# 3. 資料處理核心 (WebAccounting Class)
+# 3. 資料處理核心
 class WebAccounting:
     def __init__(self):
         self.filename = 'accounting_data.json'
@@ -60,7 +56,6 @@ class WebAccounting:
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
-            # 編輯邏輯
             for r in st.session_state.records:
                 if r['id'] == st.session_state.editing_id:
                     r['date'] = r_date.strftime('%Y-%m-%d')
@@ -71,7 +66,6 @@ class WebAccounting:
                     break
             st.session_state.editing_id = None
         else:
-            # 新增邏輯
             new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
             record = {
                 'id': new_id,
@@ -88,37 +82,36 @@ class WebAccounting:
         st.session_state.records = [r for r in st.session_state.records if r['id'] != r_id]
         self.save_data()
 
-# 初始化 App
 app = WebAccounting()
 
-# 4. 網頁 UI 呈現
+# 4. 網頁 UI
 st.title("💰 個人理財：數據記錄帳本")
-st.write(f"系統狀態：穩定運行中 | 修復收入分類顯示 Bug ✨")
+st.info("助教小提醒：若切換收入/支出，分類選單會自動重置以確保數據安全。")
 
 tab1, tab2 = st.tabs(["➕ 記帳與修正", "📊 數據清單與分析"])
 
-# --- Tab 1: 新增或編輯 ---
 with tab1:
     edit_data = None
     if st.session_state.editing_id is not None:
         edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None)
-        st.warning(f"正在編輯 ID #{st.session_state.editing_id} 的紀錄")
+        st.warning(f"正在編輯 ID #{st.session_state.editing_id}")
 
-    # 使用 Form 確保輸入資料完整後再發送
-    with st.form("input_form", clear_on_submit=False):
+    # --- 輸入表單區 ---
+    with st.container():
         col1, col2 = st.columns(2)
         
         with col1:
-            # 日期選擇
+            # 日期
             default_date = date.today()
             if edit_data:
                 default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
             r_date = st.date_input("選擇日期", default_date)
             
-            # 收支類型切換
+            # 收支類型
+            r_type_list = ["支出", "收入"]
             r_type_idx = 0
             if edit_data and edit_data['type'] == "收入": r_type_idx = 1
-            r_type = st.radio("收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True)
+            r_type = st.radio("收支類型", r_type_list, index=r_type_idx, horizontal=True)
             
             # 金額
             default_amount = 0.0
@@ -126,37 +119,45 @@ with tab1:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=100.0, value=default_amount)
         
         with col2:
-            # 【重要修復】動態決定分類清單
+            # 定義分類
             if r_type == '收入':
                 categories = ['薪水', '獎金', '投資', '其他']
             else:
                 categories = ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
             
-            # 【重要修復】計算正確的索引，避免切換類別時報錯
+            # 【終極修復】使用 key=r_type 強制重新渲染 widget
+            # 這樣當 r_type 改變時，selectbox 會被當成一個全新的元件處理
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
             
-            category = st.selectbox("分類", categories, index=cat_idx)
+            category = st.selectbox(
+                "分類標籤", 
+                categories, 
+                index=cat_idx, 
+                key=f"cat_selector_{r_type}"
+            )
             
             default_note = ""
             if edit_data: default_note = edit_data['note']
             note = st.text_input("備註內容", value=default_note)
 
-        # 提交按鈕
+        # 提交與放棄按鈕
+        btn_col_a, btn_col_b = st.columns(2)
         submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入檔案"
-        if st.form_submit_button(submit_label, use_container_width=True):
+        
+        if btn_col_a.button(submit_label, use_container_width=True, type="primary"):
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("數據已寫入晶片！")
+                st.success("數據處理成功！")
                 st.rerun()
             else:
-                st.error("金額必須大於零。")
-
-    if st.session_state.editing_id is not None:
-        if st.button("❌ 放棄編輯"):
-            st.session_state.editing_id = None
-            st.rerun()
+                st.error("金額不可為零。")
+                
+        if st.session_state.editing_id is not None:
+            if btn_col_b.button("❌ 取消編輯", use_container_width=True):
+                st.session_state.editing_id = None
+                st.rerun()
 
 # --- Tab 2: 分析與明細 ---
 with tab2:
@@ -173,25 +174,20 @@ with tab2:
         c3.metric("淨資產", f"${income - expense:,.0f}")
         
         st.divider()
-        st.write("### 📜 交易歷史明細")
         
-        # 逆序排列
+        # 顯示歷史清單
         for index, row in df.sort_values(by=['date', 'id'], ascending=False).iterrows():
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                 st.write(f"備註：{row['note']}")
-                btn_c1, btn_c2 = st.columns(2)
-                if btn_c1.button("✏️ 修改這筆", key=f"edit_{row['id']}"):
+                ec1, ec2 = st.columns(2)
+                if ec1.button("✏️ 修正", key=f"e_{row['id']}"):
                     st.session_state.editing_id = row['id']
                     st.rerun()
-                if btn_c2.button("🗑️ 刪除紀錄", key=f"del_{row['id']}"):
+                if ec2.button("🗑️ 刪除", key=f"d_{row['id']}"):
                     app.delete_record(row['id'])
                     st.rerun()
-        
-        if expense > 0:
-            st.write("### 📊 支出分佈圖")
-            st.bar_chart(df[df['type'] == '支出'].groupby('category')['amount'].sum())
     else:
-        st.info("目前載體空空如也，請先輸入帳務。")
+        st.info("帳本內尚無紀錄。")
 
 st.divider()
-st.caption("AI 載體穩定運作中 | 助教手動調教版 🚀")
+st.caption("AI 載體穩定運作中 | 修正 Widget 索引連動問題 ✅")
