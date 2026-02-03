@@ -6,7 +6,7 @@ from datetime import datetime, date
 
 # 1. 網頁初始設定
 st.set_page_config(
-    page_title="個人理財數據檔案", 
+    page_title="個人理財數據帳本", 
     page_icon="💰", 
     layout="wide"
 )
@@ -93,7 +93,7 @@ app = WebAccounting()
 
 # 4. 網頁 UI 呈現
 st.title("💰 個人理財：數據記錄帳本")
-st.write(f"系統狀態：穩定運行中 | 慶祝 12/12 康復回歸 ✨")
+st.write(f"系統狀態：穩定運行中 | 修復收入分類顯示 Bug ✨")
 
 tab1, tab2 = st.tabs(["➕ 記帳與修正", "📊 數據清單與分析"])
 
@@ -105,33 +105,38 @@ with tab1:
         st.warning(f"正在編輯 ID #{st.session_state.editing_id} 的紀錄")
 
     # 使用 Form 確保輸入資料完整後再發送
-    with st.form("input_form", clear_on_submit=True):
+    with st.form("input_form", clear_on_submit=False):
         col1, col2 = st.columns(2)
         
         with col1:
-            # 日期手動選擇功能
+            # 日期選擇
             default_date = date.today()
             if edit_data:
                 default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
             r_date = st.date_input("選擇日期", default_date)
             
+            # 收支類型切換
             r_type_idx = 0
             if edit_data and edit_data['type'] == "收入": r_type_idx = 1
             r_type = st.radio("收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True)
             
+            # 金額
             default_amount = 0.0
             if edit_data: default_amount = float(edit_data['amount'])
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=100.0, value=default_amount)
         
         with col2:
+            # 【重要修復】動態決定分類清單
             if r_type == '收入':
                 categories = ['薪水', '獎金', '投資', '其他']
             else:
                 categories = ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
             
+            # 【重要修復】計算正確的索引，避免切換類別時報錯
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
+            
             category = st.selectbox("分類", categories, index=cat_idx)
             
             default_note = ""
@@ -170,8 +175,8 @@ with tab2:
         st.divider()
         st.write("### 📜 交易歷史明細")
         
-        # 逆序排列（新的在前）並提供編輯/刪除按鈕
-        for index, row in df.sort_values(by='date', ascending=False).iterrows():
+        # 逆序排列
+        for index, row in df.sort_values(by=['date', 'id'], ascending=False).iterrows():
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                 st.write(f"備註：{row['note']}")
                 btn_c1, btn_c2 = st.columns(2)
@@ -186,7 +191,7 @@ with tab2:
             st.write("### 📊 支出分佈圖")
             st.bar_chart(df[df['type'] == '支出'].groupby('category')['amount'].sum())
     else:
-        st.info("目前檔案空空如也，請先輸入帳務。")
+        st.info("目前載體空空如也，請先輸入帳務。")
 
 st.divider()
-st.caption("AI 載體穩定運作中  (2025/12/12) 🚀")
+st.caption("AI 載體穩定運作中 | 助教手動調教版 🚀")
