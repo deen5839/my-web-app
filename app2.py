@@ -3,6 +3,7 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, date
+import io  # 確保導入此模組，修復 NameError
 
 # 1. 網頁初始設定
 st.set_page_config(
@@ -144,7 +145,7 @@ with tab1:
 
         # 提交與放棄按鈕
         btn_col_a, btn_col_b = st.columns(2)
-        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入檔案"
+        submit_label = "🚀 更新紀錄" if st.session_state.editing_id else "🚀 存入載體"
         
         if btn_col_a.button(submit_label, use_container_width=True, type="primary"):
             if amount > 0:
@@ -191,7 +192,6 @@ with tab2:
 
 st.divider()
 st.caption("AI 帳本穩定運作中 | 修正 Widget 索引連動問題 ✅")
-
 # 初始化 Session State (用於存儲搜尋紀錄)
 if 'search_history' not in st.session_state:
     st.session_state.search_history = []
@@ -208,7 +208,7 @@ def main():
     st.set_page_config(page_title="理財帳本 - 增強版", layout="wide")
     
     st.title("🐍 Python 理財帳本：備份與紀錄功能")
-    st.write(f"目前狀態：穩定運作中 | 使用者 ID: 同學你辛苦了")
+    st.write(f"目前狀態：修復完成 | 檔案穩定運作中")
 
     # --- 側邊欄：搜尋紀錄 ---
     st.sidebar.header("🔍 搜尋紀錄")
@@ -216,25 +216,21 @@ def main():
     
     if st.sidebar.button("執行搜尋"):
         if search_query:
-            # 紀錄搜尋字眼，不重複記錄
             if search_query not in st.session_state.search_history:
                 st.session_state.search_history.insert(0, search_query)
-                # 只保留最近 10 筆紀錄
                 st.session_state.search_history = st.session_state.search_history[:10]
 
-    # 顯示歷史紀錄點擊功能 (選用)
     if st.session_state.search_history:
         st.sidebar.write("最近搜尋：")
         for h in st.session_state.search_history:
-            if st.sidebar.button(f"📌 {h}", key=f"hist_{h}"):
-                search_query = h # 這裡可以用於自動填入搜尋框
+            st.sidebar.text(f"📌 {h}")
 
-    # --- 主介面：數據顯示與備份 ---
+    # --- 主介面：數據顯示 ---
     st.subheader("📊 理財數據清單")
     
-    # 根據搜尋過濾資料
     df = st.session_state.financial_data
     if search_query:
+        # 過濾包含關鍵字的資料
         filtered_df = df[df['項目'].str.contains(search_query, na=False)]
     else:
         filtered_df = df
@@ -245,17 +241,14 @@ def main():
 
     # --- 備份功能區 ---
     st.subheader("💾 數據備份與導出")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.write("將目前的理財資料備份至本地電腦 (CSV 格式)")
-        
-        # 將 DataFrame 轉為 CSV 緩衝區
+    
+    # 修正後的備份邏輯
+    try:
+        # 使用 utf-8-sig 編碼以確保 Excel 打開中文不亂碼
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
         csv_data = csv_buffer.getvalue()
 
-        # 下載按鈕
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         st.download_button(
             label="立即下載備份檔案 (.csv)",
@@ -263,9 +256,9 @@ def main():
             file_name=f"financial_backup_{timestamp}.csv",
             mime="text/csv",
         )
-
-    with col2:
-        st.info("助教提醒：建議每週備份一次，確保您的 AI 財富紀錄永不丟失！")
+        st.success("備份檔案已就緒，隨時可以下載。")
+    except Exception as e:
+        st.error(f"備份產生失敗：{e}")
 
 if __name__ == "__main__":
     main()
