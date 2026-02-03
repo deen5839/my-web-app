@@ -87,35 +87,28 @@ with st.sidebar:
     st.divider()
     st.header("💾 備份與導出")
     
-    # 處理導出 Excel 的邏輯
     if st.session_state.records:
         export_df = pd.DataFrame(st.session_state.records)
-        # 重新排序欄位方便閱讀
         export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
         export_df.columns = ['日期', '類型', '分類', '金額', '備註']
         
-        # 使用 BytesIO 建立 Excel 緩衝區，避免亂碼
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            export_df.to_excel(writer, index=False, sheet_name='理財紀錄')
-            # 這裡可以自動調整欄寬
-            worksheet = writer.sheets['理財紀錄']
-            for i, col in enumerate(export_df.columns):
-                column_len = max(export_df[col].astype(str).map(len).max(), len(col)) + 2
-                worksheet.set_column(i, i, column_len)
+        # --- 解決亂碼的核心邏輯 ---
+        # 使用 utf-8-sig 編碼，這會自動在 CSV 開頭加入 BOM 標記
+        # 這樣 Excel 就能正確識別中文，且不需要安裝額外套件 (xlsxwriter)
+        csv_data = export_df.to_csv(index=False).encode('utf-8-sig')
         
         st.download_button(
-            label="📥 下載 Excel 備份 (不亂碼版)",
-            data=buffer.getvalue(),
-            file_name=f"理財帳本備份_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            label="📥 下載 CSV 備份 (Excel 不亂碼)",
+            data=csv_data,
+            file_name=f"理財備份_{date.today()}.csv",
+            mime="text/csv",
             use_container_width=True
         )
     else:
         st.info("目前尚無數據可備份")
 
 # 5. 網頁 UI 主介面
-st.title("💰 個人理財：數據記錄帳本")
+st.title("💰 個人理財：數據記錄載體")
 
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
@@ -170,7 +163,7 @@ with tab2:
         c1, c2, c3 = st.columns(3)
         c1.metric("搜尋結果收入", f"${income:,.0f}")
         c2.metric("搜尋結果支出", f"${expense:,.0f}")
-        c3.metric("餘額", f"${income - expense:,.0f}")
+        c3.metric("餘餘額", f"${income - expense:,.0f}")
         
         st.subheader("分類佔比")
         st.bar_chart(df.groupby('category')['amount'].sum())
