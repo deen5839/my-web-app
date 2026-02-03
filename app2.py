@@ -98,7 +98,7 @@ if not df.empty:
 st.divider()
 
 # 4. 功能分頁
-tab1, tab2, tab3 = st.tabs(["➕ 記帳", "📊 分析", "📋 明細"])
+tab1, tab2, tab3 = st.tabs(["➕ 記帳", "📊 數據分析", "📋 數據明細"])
 
 with tab1:
     # 使用 clear_on_submit 確保儲存後「歸零」
@@ -114,7 +114,7 @@ with tab1:
             category = st.selectbox("分類", cats)
         
         note = st.text_input("備註")
-        submitted = st.form_submit_button("✅ 儲存並歸零", use_container_width=True)
+        submitted = st.form_submit_button("✅ 儲存檔案", use_container_width=True)
         
         if submitted:
             if amount > 0:
