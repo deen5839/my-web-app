@@ -17,7 +17,7 @@ hide_ui_style = """
     #MainMenu {visibility: hidden !important;}
     footer {visibility: hidden !important;}
     header {visibility: hidden !important;}
-    [data-testid="manage-app-button"] {display: none !important;}
+    [data-testid="manage-app2-button"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     </style>
 """
@@ -94,7 +94,7 @@ class WebAccounting:
         st.session_state.records = [r for r in st.session_state.records if r['id'] != r_id]
         self.save_data()
 
-app = WebAccounting()
+app2 = WebAccounting()
 
 # 4. 網頁 UI 佈局
 st.title("💰 個人理財：數據記錄帳本")
@@ -139,7 +139,7 @@ with tab1:
         submitted = st.form_submit_button("🚀 存入檔案", use_container_width=True)
         if submitted:
             if amount > 0:
-                app.add_or_update_record(r_date, r_type, amount, category, note)
+                app2.add_or_update_record(r_date, r_type, amount, category, note)
                 st.success("✅ 數據已更新！")
                 st.rerun()
             else:
@@ -177,7 +177,7 @@ with tab2:
                     st.session_state.editing_id = row['id']
                     st.rerun()
                 if b2.button("🗑️", key=f"d_{row['id']}"):
-                    app.delete_record(row['id'])
+                    app2.delete_record(row['id'])
                     st.rerun()
                 st.divider()
     else:
