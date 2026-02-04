@@ -180,69 +180,69 @@ with tab1:
                 st.rerun()
 import plotly.express as px
 
-# --- Tab 2: 數據視覺化與分析師面板 ---
-with tab2:
-    if not df.empty:
-        # --- (A) 預算監控區 ---
-        st.subheader("🎯 本月預算監控")
-        # ... (這裡顯示進度條)
-        st.divider()
-
-        # --- (B) 你的圓餅圖 (確保它在這裡) ---
-        expense_df = df[df['type'] == '支出']
-        if not expense_df.empty:
-            st.subheader("🍕 支出類別比例")
-            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
-            fig_pie = px.pie(cat_totals, values='amount', names='category', 
-                             title='看錢都花到哪去了',
-                             color_discrete_sequence=px.colors.sequential.RdBu)
-            st.plotly_chart(fig_pie, use_container_width=True)
-        
-        st.divider()
-
-        # --- (C) 月度收支趨勢圖 (剛剛修正日期格式的那段) ---
-        st.subheader("📈 月度收支趨勢")
-        # ... (這裡顯示長條圖)
-        
-    else:
-        st.info("📊 數據帳本目前是空的")
-
-        # 2. 原有的圓餅圖 (分類比例)
-        if not expense_df.empty:
-            st.subheader("🍕 支出類別比例")
-            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
-            fig_pie = px.pie(cat_totals, values='amount', names='category', 
-                             title='看錢都花到哪去了',
-                             color_discrete_sequence=px.colors.sequential.RdBu)
-            st.plotly_chart(fig_pie, use_container_width=True)
+# --- Tab 2: 統計分析 (完整整合版) ---
+    with tab2:
+        if not df.empty:
+            # 1. 預算監控區
+            st.subheader("🎯 本月預算監控")
+            taiwan_now = datetime.now() + timedelta(hours=8)
+            current_month_str = taiwan_now.strftime('%Y-%m')
             
-            # 自動分析小評語
-            top_cat = cat_totals.loc[cat_totals['amount'].idxmax()]
-            st.write(f"🔎 數據發現：**{top_cat['category']}** 是你最大的開銷來源。")
-        
-        st.divider()
+            monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
+            
+            expense_df = df[df['type'] == '支出']
+            this_month_expense = expense_df[pd.to_datetime(expense_df['date']).dt.strftime('%Y-%m') == current_month_str]['amount'].sum()
+            
+            progress = min(this_month_expense / monthly_budget, 1.0)
+            st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
+            st.progress(progress)
+            
+            if progress >= 0.9:
+                st.error("⚠️ 警告：支出即將超標！")
+            elif progress >= 0.7:
+                st.warning("💡 提醒：支出已達 70%。")
+            else:
+                st.success("✅ 預算控制良好。")
 
-        # --- 修正後的趨勢圖代碼 ---
-st.subheader("📈 月度收支趨勢")
+            st.divider()
 
-# 1. 確保日期轉換正確，並轉換為 'YYYY-MM' 字串格式
-         df['month_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
+            # 2. 支出圓餅圖
+            if not expense_df.empty:
+                st.subheader("🍕 支出類別比例")
+                cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
+                fig_pie = px.pie(cat_totals, values='amount', names='category', 
+                                 title='看錢都花到哪去了',
+                                 color_discrete_sequence=px.colors.sequential.RdBu)
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+                top_cat = cat_totals.loc[cat_totals['amount'].idxmax()]
+                st.write(f"🔎 數據發現：**{top_cat['category']}** 是你最大的開銷來源。")
+            
+            st.divider()
 
-# 2. 依照這個字串月份進行加總
-         trend_df = df.groupby(['month_str', 'type'])['amount'].sum().unstack().fillna(0).reset_index()
+            # 3. 月度趨勢圖
+            st.subheader("📈 月度收支趨勢")
+            df['month_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
+            trend_df = df.groupby(['month_str', 'type'])['amount'].sum().unstack().fillna(0)
 
-# 3. 畫圖時使用 month_str
-        fig_trend = px.bar(trend_df, x='month_str', y=['支出', '收入'], barmode='group',
-                   title="月度戰鬥力(收支)對照表",
-                   labels={'value': '金額', 'month_str': '月份'},
-                   color_discrete_map={'支出': '#EF553B', '收入': '#636EFA'})
+            for col in ['支出', '收入']:
+                if col not in trend_df.columns:
+                    trend_df[col] = 0.0
 
-# 強制 X 軸顯示為類別型態（避免被當成時間軸自動補日期）
-        fig_trend.update_xaxes(type='category')
+            trend_df = trend_df.reset_index()
 
-        st.plotly_chart(fig_trend, use_container_width=True)
-    else:
-        st.info("📊 數據帳本目前是空的，快去 Tab 1 記下第一筆帳吧！")
+            fig_trend = px.bar(trend_df, x='month_str', y=['支出', '收入'], barmode='group',
+                               title="月度戰鬥力(收支)對照表",
+                               labels={'value': '金額', 'month_str': '月份', 'variable': '類型'},
+                               color_discrete_map={'支出': '#EF553B', '收入': '#636EFA'})
+
+            fig_trend.update_xaxes(type='category')
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+        else:
+            st.info("📊 數據帳本目前是空的，快去 Tab 1 記下第一筆帳吧！")
+
+    # --- 這裡下面就是原本的 Tab 3 了 ---
 # --- Tab 3: 歷史清單 (預設顯示當月) ---
 with tab3:
     if not df.empty:
