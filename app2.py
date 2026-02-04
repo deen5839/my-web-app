@@ -196,7 +196,7 @@ with tab2:
     else:
         st.info("沒有數據。")
 
-# --- Tab 3: 歷史清單 (替換原本的內容) ---
+# --- Tab 3: 歷史清單 (預設顯示當月) ---
 with tab3:
     if not df.empty:
         # 1. 準備月份資料
@@ -204,10 +204,18 @@ with tab3:
         available_months = df['date_dt'].dt.strftime('%Y-%m').unique().tolist()
         available_months.sort(reverse=True)
         
+        # 取得當前台灣月份 (格式如 '2026-02')
+        current_month_str = (datetime.now() + timedelta(hours=8)).strftime('%Y-%m')
+        
+        # 計算預設索引：如果當月有資料就選當月，否則選第一個（最新月）
+        default_idx = 0
+        if current_month_str in available_months:
+            default_idx = available_months.index(current_month_str) + 1 # +1 是因為第一個選項是"顯示全部"
+
         # 2. 顯示篩選下拉選單
         col_f1, col_f2 = st.columns([1, 2])
         with col_f1:
-            selected_month = st.selectbox("📅 選擇月份觀看", ["顯示全部"] + available_months)
+            selected_month = st.selectbox("📅 選擇月份觀看", ["顯示全部"] + available_months, index=default_idx)
         
         # 3. 執行篩選
         display_df = df.copy()
@@ -223,9 +231,7 @@ with tab3:
                     st.session_state.editing_id = None
                     st.rerun()
 
-            # 這裡使用篩選後的資料 display_df 進行循環
             for _, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
-                # 私密內容處理
                 raw_note = row['note'] if row['note'] else '無'
                 display_note = "🔒 內容已加密 (私密項目)" if raw_note.startswith("[私密]") else raw_note
                 
