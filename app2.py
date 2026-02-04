@@ -186,7 +186,11 @@ with tab3:
 
         for _, row in df.sort_values(by=['date'], ascending=False).iterrows():
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
-                st.write(f"備註: {row['note']}")
+                # 在 Tab 3 歷史清單循環中修改：
+                raw_note = row['note'] if row['note'] else '無'
+                # 如果備註開頭是 [私密]，我們就只顯示鎖頭，不顯示內容
+                display_note = "🔒 內容已加密 (私密項目)" if raw_note.startswith("[私密]") else raw_note
+                st.write(f"📝 備註: {display_note}")
                 ec1, ec2 = st.columns(2)
                 if ec1.button("✏️ 編輯", key=f"edit_btn_{row['id']}"):
                     st.session_state.editing_id = row['id']
