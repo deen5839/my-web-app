@@ -181,20 +181,20 @@ with tab1:
 import plotly.express as px
 
 # --- Tab 2: 統計分析 (完整整合版) ---
-    with tab2:
-        if not df.empty:
-            # 1. 預算監控區
-            st.subheader("🎯 本月預算監控")
-            taiwan_now = datetime.now() + timedelta(hours=8)
-            current_month_str = taiwan_now.strftime('%Y-%m')
+with tab2:
+    if not df.empty:
+        # 1. 預算監控區
+        st.subheader("🎯 本月預算監控")
+        taiwan_now = datetime.now() + timedelta(hours=8)
+        current_month_str = taiwan_now.strftime('%Y-%m')
             
-            monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
+        monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
             
-            expense_df = df[df['type'] == '支出']
-            this_month_expense = expense_df[pd.to_datetime(expense_df['date']).dt.strftime('%Y-%m') == current_month_str]['amount'].sum()
+        expense_df = df[df['type'] == '支出']
+        this_month_expense = expense_df[pd.to_datetime(expense_df['date']).dt.strftime('%Y-%m') == current_month_str]['amount'].sum()
             
-            progress = min(this_month_expense / monthly_budget, 1.0)
-            st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
+        progress = min(this_month_expense / monthly_budget, 1.0)
+        st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
             st.progress(progress)
             
             if progress >= 0.9:
