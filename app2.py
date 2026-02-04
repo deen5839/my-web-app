@@ -107,6 +107,20 @@ if not df.empty:
         ]
 
 # 5. UI 主介面
+# --- 啟動歡迎詞 ---
+now_hour = datetime.now().hour
+if now_hour < 12:
+    greeting = "🌅 早上好！今天也是充滿數據力的一天。"
+elif now_hour < 18:
+    greeting = "☀️ 下午好！來對個帳，讓理財更有 Vibe。"
+else:
+    greeting = "🌙 晚上好！辛苦了，整理一下今天的收支吧。"
+
+st.toast(f"系統已就緒：{greeting}") # 右下角會跳出小通知
+st.markdown(f"### {greeting}") 
+st.caption("🚀 歡迎使用 **個人理財數據載體 v1.1** | 讓你的每一分錢都有跡可循")
+st.divider()
+
 st.title("💰 個人理財：數據記錄帳本")
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
@@ -176,15 +190,31 @@ with tab2:
     else:
         st.info("沒有數據。")
 
-# --- Tab 3: 歷史清單 ---
+# --- Tab 3: 歷史清單 (優化版) ---
 with tab3:
     if not df.empty:
+        # 解決清單過長：增加月份篩選器
+        df['date_dt'] = pd.to_datetime(df['date'])
+        available_months = df['date_dt'].dt.strftime('%Y-%m').unique().tolist()
+        available_months.sort(reverse=True)
+        
+        col_filter1, col_filter2 = st.columns([1, 2])
+        with col_filter1:
+            selected_month = st.selectbox("📅 選擇月份", ["顯示全部"] + available_months)
+        
+        # 根據選擇過濾數據
+        display_df = df.copy()
+        if selected_month != "顯示全部":
+            display_df = display_df[display_df['date_dt'].dt.strftime('%Y-%m') == selected_month]
+
         if st.session_state.editing_id:
-            if st.button("❌ 取消編輯模式"):
+            if st.button("❌ 放棄修改"):
                 st.session_state.editing_id = None
                 st.rerun()
 
-        for _, row in df.sort_values(by=['date'], ascending=False).iterrows():
+        # 這裡改用過濾後的 display_df
+        for _, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
+            # ... (後面的 expander 顯示邏輯不變)
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                 # 在 Tab 3 歷史清單循環中修改：
                 raw_note = row['note'] if row['note'] else '無'
