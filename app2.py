@@ -183,31 +183,29 @@ import plotly.express as px
 # --- Tab 2: 數據視覺化與分析師面板 ---
 with tab2:
     if not df.empty:
-        # 1. 預算監控區 (這能展現你的風險控管邏輯)
+        # --- (A) 預算監控區 ---
         st.subheader("🎯 本月預算監控")
-        # 取得當前月份 (校正台灣時區)
-        current_month_str = (datetime.now() + timedelta(hours=8)).strftime('%Y-%m')
-        
-        # 設定預算 (可以讓使用者自己調整)
-        monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
-        
-        # 計算本月總支出
-        expense_df = df[df['type'] == '支出']
-        this_month_expense = expense_df[pd.to_datetime(expense_df['date']).dt.strftime('%Y-%m') == current_month_str]['amount'].sum()
-        
-        # 顯示進度條
-        progress = min(this_month_expense / monthly_budget, 1.0)
-        st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
-        st.progress(progress)
-        
-        if progress >= 0.9:
-            st.error("⚠️ 警告：支出已達預算 90%！請注意財務健康。")
-        elif progress >= 0.7:
-            st.warning("💡 提醒：支出已達 70%，請稍微節制。")
-        else:
-            st.success("✅ 預算控制良好，目前非常安全！")
-
+        # ... (這裡顯示進度條)
         st.divider()
+
+        # --- (B) 你的圓餅圖 (確保它在這裡) ---
+        expense_df = df[df['type'] == '支出']
+        if not expense_df.empty:
+            st.subheader("🍕 支出類別比例")
+            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
+            fig_pie = px.pie(cat_totals, values='amount', names='category', 
+                             title='看錢都花到哪去了',
+                             color_discrete_sequence=px.colors.sequential.RdBu)
+            st.plotly_chart(fig_pie, use_container_width=True)
+        
+        st.divider()
+
+        # --- (C) 月度收支趨勢圖 (剛剛修正日期格式的那段) ---
+        st.subheader("📈 月度收支趨勢")
+        # ... (這裡顯示長條圖)
+        
+    else:
+        st.info("📊 數據帳本目前是空的")
 
         # 2. 原有的圓餅圖 (分類比例)
         if not expense_df.empty:
