@@ -183,20 +183,33 @@ import plotly.express as px
 # --- Tab 2: 統計分析 (完整整合版) ---
 with tab2:
         if not df.empty:
-            # 1. 預算監控
+            # --- 1. 數值概況卡片 (把消失的找回來) ---
+            total_income = df[df['type'] == '收入']['amount'].sum()
+            total_expense = df[df['type'] == '支出']['amount'].sum()
+            net_income = total_income - total_expense
+            
+            st.subheader("💰 財務概況")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("總收入", f"${total_income:,.0f}")
+            c2.metric("總支出", f"${total_expense:,.0f}", delta=f"-{total_expense:,.0f}", delta_color="inverse")
+            c3.metric("淨收入", f"${net_income:,.0f}", delta=f"{net_income:,.0f}")
+            
+            st.divider()
+
+            # --- 2. 預算監控 ---
             st.subheader("🎯 本月預算監控")
             taiwan_now = datetime.now() + timedelta(hours=8)
             current_month_str = taiwan_now.strftime('%Y-%m')
             monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
-            expense_df = df[df['type'] == '支出']
-            this_month_expense = expense_df[pd.to_datetime(expense_df['date']).dt.strftime('%Y-%m') == current_month_str]['amount'].sum()
             
+            this_month_expense = df[(df['type'] == '支出') & (pd.to_datetime(df['date']).dt.strftime('%Y-%m') == current_month_str)]['amount'].sum()
             progress = min(this_month_expense / monthly_budget, 1.0)
             st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
             st.progress(progress)
             st.divider()
 
-            # 2. 支出圓餅圖
+            # --- 3. 支出圓餅圖 ---
+            expense_df = df[df['type'] == '支出']
             if not expense_df.empty:
                 st.subheader("🍕 支出類別比例")
                 cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
@@ -204,7 +217,7 @@ with tab2:
                 st.plotly_chart(fig_pie, use_container_width=True)
             st.divider()
 
-            # 3. 月度趨勢圖
+            # --- 4. 月度趨勢圖 ---
             st.subheader("📈 月度收支趨勢")
             df['month_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
             trend_df = df.groupby(['month_str', 'type'])['amount'].sum().unstack().fillna(0)
@@ -216,7 +229,7 @@ with tab2:
             fig_trend.update_xaxes(type='category')
             st.plotly_chart(fig_trend, use_container_width=True)
             
-        else: # <--- 這是第 242 行左右，確保它跟上面的 if not df.empty: 對齊
+        else:
             st.info("📊 數據帳本目前是空的，快去 Tab 1 記下第一筆帳吧！")
 # --- Tab 3: 歷史清單 (預設顯示當月) ---
 with tab3:
