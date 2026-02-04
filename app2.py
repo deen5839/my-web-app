@@ -224,17 +224,25 @@ with tab2:
         
         st.divider()
 
-        # 3. 新增：月度收支趨勢圖 (展現大數據分析潛力)
-        st.subheader("📈 月度收支趨勢")
-        df['month'] = pd.to_datetime(df['date']).dt.to_period('M').astype(str)
-        trend_df = df.groupby(['month', 'type'])['amount'].sum().unstack().fillna(0).reset_index()
-        
-        fig_trend = px.bar(trend_df, x='month', y=['支出', '收入'], barmode='group',
-                           title="月度戰鬥力(收支)對照表",
-                           labels={'value': '金額', 'month': '月份'},
-                           color_discrete_map={'支出': '#EF553B', '收入': '#636EFA'})
-        st.plotly_chart(fig_trend, use_container_width=True)
-        
+        # --- 修正後的趨勢圖代碼 ---
+st.subheader("📈 月度收支趨勢")
+
+# 1. 確保日期轉換正確，並轉換為 'YYYY-MM' 字串格式
+df['month_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
+
+# 2. 依照這個字串月份進行加總
+trend_df = df.groupby(['month_str', 'type'])['amount'].sum().unstack().fillna(0).reset_index()
+
+# 3. 畫圖時使用 month_str
+fig_trend = px.bar(trend_df, x='month_str', y=['支出', '收入'], barmode='group',
+                   title="月度戰鬥力(收支)對照表",
+                   labels={'value': '金額', 'month_str': '月份'},
+                   color_discrete_map={'支出': '#EF553B', '收入': '#636EFA'})
+
+# 強制 X 軸顯示為類別型態（避免被當成時間軸自動補日期）
+fig_trend.update_xaxes(type='category')
+
+st.plotly_chart(fig_trend, use_container_width=True)
     else:
         st.info("📊 數據帳本目前是空的，快去 Tab 1 記下第一筆帳吧！")
 # --- Tab 3: 歷史清單 (預設顯示當月) ---
