@@ -131,13 +131,17 @@ with tab1:
             
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            categories = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '其他']
+            categories = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療','軟體訂閱', '其他']
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
             category = st.selectbox("分類標籤", categories, index=cat_idx)
 
         note = st.text_input("備註內容", value=edit_data['note'] if edit_data else "")
+        is_secret = st.checkbox("設為私密備註 (僅在導出 Excel 時可見)")
+        note_display = note
+        if is_secret:
+        note_display = "🔒 已加密內容" # 歷史清單顯示這個，但 Excel 會存原始資料
         submit_btn = st.form_submit_button("🚀 儲存紀錄", use_container_width=True)
         
         if submit_btn:
