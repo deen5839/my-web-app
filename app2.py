@@ -141,7 +141,7 @@ with tab1:
         is_secret = st.checkbox("設為私密備註 (僅在導出 Excel 時可見)")
         note_display = note
         if is_secret:
-        note_display = "🔒 已加密內容" # 歷史清單顯示這個，但 Excel 會存原始資料
+            note_display = "🔒 已加密內容" # 歷史清單顯示這個，但 Excel 會存原始資料
         submit_btn = st.form_submit_button("🚀 儲存紀錄", use_container_width=True)
         
         if submit_btn:
