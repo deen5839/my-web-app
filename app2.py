@@ -195,14 +195,14 @@ with tab2:
             
         progress = min(this_month_expense / monthly_budget, 1.0)
         st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
-            st.progress(progress)
+        st.progress(progress)
             
-            if progress >= 0.9:
-                st.error("⚠️ 警告：支出即將超標！")
-            elif progress >= 0.7:
-                st.warning("💡 提醒：支出已達 70%。")
-            else:
-                st.success("✅ 預算控制良好。")
+        if progress >= 0.9:
+            st.error("⚠️ 警告：支出即將超標！")
+        elif progress >= 0.7:
+            st.warning("💡 提醒：支出已達 70%。")
+        else:
+            st.success("✅ 預算控制良好。")
 
             st.divider()
 
