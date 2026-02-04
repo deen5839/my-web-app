@@ -107,21 +107,19 @@ if not df.empty:
         ]
 
 # 5. UI 主介面
-# --- 啟動歡迎詞 ---
-now_hour = datetime.now().hour
-if now_hour < 12:
-    greeting = "🌅 早上好！今天也是充滿數據力的一天。"
-elif now_hour < 18:
-    greeting = "☀️ 下午好！來對個帳，讓理財更有 Vibe。"
-else:
-    greeting = "🌙 晚上好！辛苦了，整理一下今天的收支吧。"
-
-st.toast(f"系統已就緒：{greeting}") # 右下角會跳出小通知
-st.markdown(f"### {greeting}") 
-st.caption("🚀 歡迎使用 **個人理財數據載體 v1.1** | 讓你的每一分錢都有跡可循")
-st.divider()
-
 st.title("💰 個人理財：數據記錄帳本")
+# --- 這裡插入：啟動歡迎詞與健康提醒 ---
+now_hour = datetime.now().hour
+if 5 <= now_hour < 12:
+    greeting = "🌅 早上好！今天也是充滿數據力的一天。"
+elif 12 <= now_hour < 18:
+    greeting = "☀️ 下午好！南科陽光正美，記得小口喝水，保持喉嚨濕潤喔。"
+else:
+    greeting = "🌙 晚上好！辛苦了，整理一下今天的收支，早點休息。"
+
+st.info(greeting) # 這會產生一個漂亮的藍色對話框
+st.caption("🚀 歡迎使用 **個人理財數據載體 v1.2** | 讓你的每一分錢都有跡可循")
+# -----------------------------------
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
 
@@ -190,42 +188,48 @@ with tab2:
     else:
         st.info("沒有數據。")
 
-# --- Tab 3: 歷史清單 (優化版) ---
+# --- Tab 3: 歷史清單 (替換原本的內容) ---
 with tab3:
     if not df.empty:
-        # 解決清單過長：增加月份篩選器
+        # 1. 準備月份資料
         df['date_dt'] = pd.to_datetime(df['date'])
         available_months = df['date_dt'].dt.strftime('%Y-%m').unique().tolist()
         available_months.sort(reverse=True)
         
-        col_filter1, col_filter2 = st.columns([1, 2])
-        with col_filter1:
-            selected_month = st.selectbox("📅 選擇月份", ["顯示全部"] + available_months)
+        # 2. 顯示篩選下拉選單
+        col_f1, col_f2 = st.columns([1, 2])
+        with col_f1:
+            selected_month = st.selectbox("📅 選擇月份觀看", ["顯示全部"] + available_months)
         
-        # 根據選擇過濾數據
+        # 3. 執行篩選
         display_df = df.copy()
         if selected_month != "顯示全部":
             display_df = display_df[display_df['date_dt'].dt.strftime('%Y-%m') == selected_month]
 
-        if st.session_state.editing_id:
-            if st.button("❌ 放棄修改"):
-                st.session_state.editing_id = None
-                st.rerun()
+        # 4. 顯示邏輯
+        if display_df.empty:
+            st.info(f"🔍 {selected_month} 尚無任何紀錄。")
+        else:
+            if st.session_state.editing_id:
+                if st.button("❌ 放棄修改"):
+                    st.session_state.editing_id = None
+                    st.rerun()
 
-        # 這裡改用過濾後的 display_df
-        for _, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
-            # ... (後面的 expander 顯示邏輯不變)
-            with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
-                # 在 Tab 3 歷史清單循環中修改：
+            # 這裡使用篩選後的資料 display_df 進行循環
+            for _, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
+                # 私密內容處理
                 raw_note = row['note'] if row['note'] else '無'
-                # 如果備註開頭是 [私密]，我們就只顯示鎖頭，不顯示內容
                 display_note = "🔒 內容已加密 (私密項目)" if raw_note.startswith("[私密]") else raw_note
-                st.write(f"📝 備註: {display_note}")
-                ec1, ec2 = st.columns(2)
-                if ec1.button("✏️ 編輯", key=f"edit_btn_{row['id']}"):
-                    st.session_state.editing_id = row['id']
-                    st.rerun()
-                if ec2.button("🗑️ 刪除", key=f"del_btn_{row['id']}"):
-                    st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
-                    app.save_data()
-                    st.rerun()
+                
+                with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
+                    st.write(f"📝 備註: {display_note}")
+                    ec1, ec2 = st.columns(2)
+                    if ec1.button("✏️ 修改", key=f"edit_btn_{row['id']}"):
+                        st.session_state.editing_id = row['id']
+                        st.rerun()
+                    if ec2.button("🗑️ 刪除", key=f"del_btn_{row['id']}"):
+                        st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
+                        app.save_data()
+                        st.rerun()
+    else:
+        st.warning("清單是空的喔！")
