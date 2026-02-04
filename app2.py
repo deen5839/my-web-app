@@ -110,46 +110,54 @@ if not df.empty:
 st.title("💰 個人理財：數據記錄帳本")
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
-# --- Tab 1: 記帳 ---
+
+# --- Tab 1: 記帳 (已加入私密加密功能) ---
 with tab1:
     edit_data = None
     if st.session_state.editing_id:
         edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None)
-        st.warning(f"🔧 正在編輯 ID #{st.session_state.editing_id}")
+        st.warning(f"🔧 正在編輯模式...")
 
-    default_type_idx = 0 if not edit_data or edit_data['type'] == "支出" else 1
-    r_type = st.radio("收支類型", ["支出", "收入"], index=default_type_idx, horizontal=True, key="main_type_radio")
+    r_type = st.radio("收支類型", ["支出", "收入"], index=0 if not edit_data or edit_data['type'] == "支出" else 1, horizontal=True)
 
-    # 按下儲存後，非編輯狀態會自動清空
     with st.form("input_form", clear_on_submit=(st.session_state.editing_id is None)):
         col1, col2 = st.columns(2)
         with col1:
             default_date = date.today()
             if edit_data:
-                default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
+                # 這裡加個防錯，確保日期格式正確
+                try:
+                    default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
+                except:
+                    default_date = date.today()
             r_date = st.date_input("日期", default_date)
             
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            categories = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療','軟體訂閱', '其他']
+            # 增加「軟體訂閱」分類
+            categories = ['薪水', '獎金', '投資', '洗衣店營收', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '軟體訂閱', '其他']
+            
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
             category = st.selectbox("分類標籤", categories, index=cat_idx)
 
-        note = st.text_input("備註內容", value=edit_data['note'] if edit_data else "")
-        is_secret = st.checkbox("設為私密備註 (僅在導出 Excel 時可見)")
-        note_display = note
-        if is_secret:
-            note_display = "🔒 已加密內容" # 歷史清單顯示這個，但 Excel 會存原始資料
+        # 備註輸入
+        note = st.text_input("備註內容", value=edit_data['note'].replace("[私密] ", "") if edit_data else "", placeholder="例如：Steam 遊戲...")
+        
+        # --- 這裡就是新加入的隱藏功能 ---
+        is_secret = st.checkbox("🤫 開啟私密模式 (在清單中隱藏具體備註內容)")
+        # ----------------------------
+
         submit_btn = st.form_submit_button("🚀 儲存紀錄", use_container_width=True)
         
         if submit_btn:
             if amount > 0:
-                app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("數據已存檔並重置。")
+                # 如果勾選私密，就在存檔時加上標記
+                final_note = f"[私密] {note}" if is_secret else note
+                app.add_or_update_record(r_date, r_type, amount, category, final_note)
+                st.success("數據已安全存檔！")
                 st.rerun()
-
 # --- Tab 2: 分析 ---
 with tab2:
     if not df.empty:
