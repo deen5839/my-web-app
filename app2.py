@@ -178,23 +178,33 @@ with tab1:
                 app.add_or_update_record(r_date, r_type, amount, category, final_note)
                 st.success("數據已安全存檔！")
                 st.rerun()
-# --- Tab 2: 分析 ---
+import plotly.express as px
+
+# --- Tab 2: 統計分析 (新增圖表版) ---
 with tab2:
     if not df.empty:
-        c1, c2, c3 = st.columns(3)
-        inc = df[df['type'] == '收入']['amount'].sum()
-        exp = df[df['type'] == '支出']['amount'].sum()
-        c1.metric("搜尋結果收入", f"${inc:,.0f}")
-        c2.metric("搜尋結果支出", f"${exp:,.0f}")
-        c3.metric("餘額", f"${inc-exp:,.0f}")
+        # 只分析支出
+        expense_df = df[df['type'] == '支出']
         
-        st.divider()
-        st.subheader("📌 支出佔比分析")
-        exp_data = df[df['type'] == '支出'].groupby('category')['amount'].sum()
-        if not exp_data.empty:
-            st.bar_chart(exp_data, use_container_width=True)
-    else:
-        st.info("沒有數據。")
+        if not expense_df.empty:
+            st.subheader("📊 開支結構分析")
+            
+            # 依分類加總
+            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
+            
+            # 畫出圓餅圖
+            fig = px.pie(cat_totals, values='amount', names='category', 
+                         title='各類別支出比例',
+                         color_discrete_sequence=px.colors.sequential.RdBu)
+            
+            # 顯示圖表
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 顯示分析小評語
+            top_cat = cat_totals.loc[cat_totals['amount'].idxmax()]
+            st.write(f"💡 分析結果：目前最大的開銷是 **{top_cat['category']}**，總計為 **${top_cat['amount']:,.0f}**。")
+        else:
+            st.info("目前尚無支出資料可供分析。")
 
 # --- Tab 3: 歷史清單 (預設顯示當月) ---
 with tab3:
