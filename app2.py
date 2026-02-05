@@ -33,18 +33,24 @@ class WebAccounting:
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
-    def load_data(self):
+    
+def load_data(self):
         try:
-            # 嘗試讀取
-            df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
+            # 1. 嘗試連線並讀取 (拿掉所有不必要的參數，只留網址)
+            df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
+            
+            # 2. 如果真的有抓到東西，才進行轉換
             if df is not None and not df.empty:
-                # 成功讀取就回傳資料
+                # 這裡過濾掉可能的空列
+                df = df.dropna(subset=['date', 'amount'], how='all')
                 return df.to_dict('records')
+            
+            # 3. 如果抓到的是空的，就回傳空清單
+            return []
         except Exception as e:
-            # 💡 關鍵：如果噴 400 錯誤，我們就安靜地回傳空清單，不要噴錯誤訊息嚇你
-            pass
-        return []
-
+            # 💡 這裡是重點：如果讀取失敗(400錯誤)，我們就回傳空清單
+            # 這樣網頁雖然是空的，但你「可以」開始輸入新資料，按下儲存後它會重新建立格式
+            return []
     def save_data(self):
         try:
             df = pd.DataFrame(st.session_state.records)
