@@ -34,12 +34,10 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 加上 worksheet=0 代表讀取第一個分頁
-            df = self.conn.read(spreadsheet=self.sheet_url, worksheet=0, ttl=0)
+            # ttl=0 強制每次都從雲端抓最新的，不使用快取資料
+            df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
             if df is None or df.empty:
                 return []
-            # 確保 id 欄位讀回來是字串，避免 UUID 比對失敗
-            df['id'] = df['id'].astype(str)
             return df.to_dict('records')
         except:
             return []
