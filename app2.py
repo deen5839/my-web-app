@@ -68,9 +68,10 @@ class WebAccounting:
 if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 app = st.session_state.app
-
-if 'app' not in st.session_state:
-    st.session_state.app = WebAccounting()
+if 'editing_id' not in st.session_state:
+    st.session_state.editing_id = None
+if 'records' not in st.session_state:
+    st.session_state.records = []
 app = st.session_state.app
 
 # 3. 側邊欄：搜尋與 Excel 備份
