@@ -32,7 +32,7 @@ class WebAccounting:
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
-   def load_data(self):
+    def load_data(self):
         try:
             # 加上 worksheet=0 代表讀取第一個分頁
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet=0, ttl=0)
