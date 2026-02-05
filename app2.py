@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 數據處理核心 (Google Sheets 完整版)
+# 2. 數據處理核心 (升級為 Google Sheets 版)
 class WebAccounting:
     def __init__(self):
         self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit"
@@ -25,7 +25,7 @@ class WebAccounting:
         except Exception as e:
             st.error(f"❌ 雲端連接初始化失敗: {e}")
         
-        # 💡 初始化保險：防止因雲端讀取延遲導致的 AttributeError
+        # 💡 初始化保險：確保 session_state 變數絕對存在
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
@@ -34,14 +34,10 @@ class WebAccounting:
     def load_data(self):
         """讀取雲端載體數據"""
         try:
-            # 加上 ttl=0 強迫讀取最新雲端數據
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is not None and not df.empty:
-                # 確保金額格式正確
-                df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
                 return df.to_dict('records')
         except:
-            # 若連線失敗或無權限，回傳空清單
             pass
         return []
 
@@ -53,7 +49,6 @@ class WebAccounting:
             else:
                 df = pd.DataFrame(st.session_state.records)
             
-            # 強制清除快取
             st.cache_data.clear()
             self.conn.update(
                 spreadsheet=self.sheet_url, 
@@ -61,15 +56,13 @@ class WebAccounting:
                 data=df
             )
             st.cache_data.clear()
-            st.toast("✅ 數據已成功同步至雲端載體！", icon="☁️")
+            st.toast("✅ 數據同步成功！", icon="☁️")
             return True
         except Exception as e:
-            # 400 錯誤或權限問題會攔截到這裡
-            st.sidebar.error(f"⚠️ 雲端寫入攔截：{e}")
+            st.sidebar.error(f"❌ 雲端寫入攔截：{e}")
             return False
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
-        """處理新增或修改邏輯"""
         if st.session_state.editing_id is not None:
             for r in st.session_state.records:
                 if r['id'] == st.session_state.editing_id:
@@ -94,15 +87,13 @@ class WebAccounting:
             })
         self.save_data()
 
-# --- 初始化應用實體 ---
+# --- 初始化應用 ---
 if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 
-# 二次保險：確保變數絕對存在，防止介面渲染錯誤
+# 確保 editing_id 不會因為頁面重新整理而遺失
 if 'editing_id' not in st.session_state:
     st.session_state.editing_id = None
-if 'records' not in st.session_state:
-    st.session_state.records = []
 
 app = st.session_state.app
 
@@ -136,7 +127,7 @@ with st.sidebar:
     else:
         st.info("尚無數據可導出")
 
-# 4. 數據預處理 (過濾搜尋結果)
+# 4. 數據預處理
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
@@ -149,7 +140,7 @@ if not df.empty:
 # 5. UI 主介面
 st.title("💰 個人理財：數據記錄帳本")
 
-# 台灣時區招呼語 (UTC+8 校正)
+# 校正台灣時區 (UTC+8)
 taiwan_now = datetime.now() + timedelta(hours=8)
 now_hour = taiwan_now.hour
 
@@ -199,7 +190,7 @@ with tab1:
         if submit_btn:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
-                st.success("☁️ 數據已處理完成！")
+                st.success("☁️ 數據已成功同步！")
                 st.rerun()
 
 # --- Tab 2: 統計分析 ---
@@ -216,20 +207,22 @@ with tab2:
         c3.metric("淨收入", f"${net_income:,.0f}")
         
         st.divider()
-        st.subheader("🍕 支出類別比例")
+        st.subheader("🎯 本月預算監控")
+        current_month_str = taiwan_now.strftime('%Y-%m')
+        monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
+        this_month_expense = df[(df['type'] == '支出') & (pd.to_datetime(df['date']).dt.strftime('%Y-%m') == current_month_str)]['amount'].sum()
+        progress = min(this_month_expense / monthly_budget, 1.0)
+        st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** ({progress*100:.1f}%)")
+        st.progress(progress)
+        
         expense_df = df[df['type'] == '支出']
         if not expense_df.empty:
+            st.subheader("🍕 支出類別比例")
             cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
             fig_pie = px.pie(cat_totals, values='amount', names='category', hole=0.3)
             st.plotly_chart(fig_pie, use_container_width=True)
-            
-        st.subheader("📊 本月預算監控")
-        budget = st.number_input("💸 設定本月支出預算", value=15000, step=500)
-        progress = min(total_expense / budget, 1.0)
-        st.write(f"目前支出進度：{progress*100:.1f}%")
-        st.progress(progress)
     else:
-        st.info("📊 雲端載體目前是空的，無法進行統計。")
+        st.info("📊 雲端載體目前是空的。")
 
 # --- Tab 3: 歷史清單 ---
 with tab3:
