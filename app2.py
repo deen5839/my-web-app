@@ -48,24 +48,34 @@ class WebAccounting:
             return []
 
     def save_data(self):
-        """存入雲端數據"""
+        """強效存入雲端數據"""
         try:
-            if not st.session_state.records:
+            # 1. 確保拿到目前最新、且已被刪除/修改後的清單
+            updated_data = st.session_state.records
+            
+            # 2. 轉換成 DataFrame
+            if not updated_data:
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
-                df = pd.DataFrame(st.session_state.records)
-            
-            # 1. 執行更新
-            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
-            
-            # 2. 💡 加在這裡！寫入成功後，立刻清空快取
+                df = pd.DataFrame(updated_data)
+
+            # 3. 💡 關鍵修正：先清空快取，再執行更新
             st.cache_data.clear() 
             
-            # 3. 順便加個小通知，讓你知道成功了
-            st.toast("✅ 雲端載體已同步更新！", icon="☁️")
+            # 4. 指定寫入，強迫 Google 更新
+            self.conn.update(
+                spreadsheet=self.sheet_url, 
+                worksheet="Sheet1", 
+                data=df
+            )
+            
+            # 5. 💡 再次清空，確保下次讀取不會抓到「刪除前」的舊鬼影
+            st.cache_data.clear()
+            
+            st.toast("✅ 雲端同步成功！", icon="☁️")
             return True
         except Exception as e:
-            st.error(f"☁️ 寫入失敗，請檢查權限或分頁名稱：{e}")
+            st.error(f"❌ 寫入失敗：{e}")
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
