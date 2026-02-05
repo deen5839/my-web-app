@@ -159,7 +159,7 @@ with tab1:
             r_date = st.date_input("日期", datetime.strptime(edit_data['date'], '%Y-%m-%d').date() if edit_data else date.today())
         with col2:
             amount = st.number_input("金額", min_value=0.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            cats = ['薪水', '獎金', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '其他']
+            cats = ['薪水', '獎金', '投資', '洗衣店營收', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '其他']
             category = st.selectbox("分類", cats)
         note = st.text_input("備註", value=edit_data['note'] if edit_data else "")
         if st.form_submit_button("🚀 儲存至本機", use_container_width=True):
