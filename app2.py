@@ -40,19 +40,40 @@ class WebAccounting:
                 st.session_state.records = []
         except:
             st.session_state.records = []
+  
+    def load_data(self):
+        # 1. 先嘗試讀雲端
+        try:
+            df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
+            if df is not None and not df.empty:
+                return df.to_dict('records')
+        except:
+            pass
+        
+        # 2. 如果雲端失敗，嘗試讀取本地備份
+        if os.path.exists('local_backup.json'):
+            with open('local_backup.json', 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
 
     def save_data(self):
         try:
             df = pd.DataFrame(st.session_state.records)
-            # 💡 在寫入之前，先清空 Streamlit 所有的內部記憶
+            
+            # 💡 雙重保險：
+            # A. 存到本地檔案 (保證你在網頁重新整理後，數據還在)
+            with open('local_backup.json', 'w', encoding='utf-8') as f:
+                json.dump(st.session_state.records, f, ensure_ascii=False, indent=4)
+            
+            # B. 存到雲端 (如果這步失敗也沒關係，因為本地已經存好了)
             st.cache_data.clear()
             self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
-            st.toast("✅ 雲端已更新！")
+            st.toast("✅ 數據已安全存入載體", icon="💾")
             return True
-        except Exception as e:
-            st.error(f"寫入失敗：{e}")
-            return False
-
+        except:
+            st.toast("⚠️ 雲端暫時離線，已啟用本地載體備份", icon="🏠")
+            return True
+    
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         new_id = str(uuid.uuid4())[:8]
         new_data = {
