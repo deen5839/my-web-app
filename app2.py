@@ -45,28 +45,24 @@ class WebAccounting:
             return []
 
     def save_data(self):
-        """暴力同步法"""
         try:
-            # 1. 取得目前網頁上的最新紀錄
             df = pd.DataFrame(st.session_state.records)
             
-            # 2. 強制清除所有快取，就像把腦袋清空重新開機
-            st.cache_data.clear()
+            # 💡 強制確保欄位順序與名稱完全正確
+            df = df[['id', 'date', 'type', 'amount', 'category', 'note']]
             
-            # 3. 執行更新
+            # 確保 amount 是數字類型，其餘是字串
+            df['amount'] = pd.to_numeric(df['amount'])
+            
             self.conn.update(
                 spreadsheet=self.sheet_url, 
                 worksheet="Sheet1", 
                 data=df
             )
-            
-            # 4. 更新完後再清一次，確保下一秒讀取的是剛存進去的
             st.cache_data.clear()
-            
-            st.toast("✅ 雲端載體已同步！", icon="☁️")
-            return True
+            st.toast("✅ 同步成功！")
         except Exception as e:
-            st.error(f"❌ 無法寫入試算表，請檢查權限：{e}")
+            st.error(f"讀取失敗: {e}") # 就是這裡噴出 400
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
