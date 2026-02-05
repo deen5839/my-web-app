@@ -54,16 +54,19 @@ class WebAccounting:
         """存入雲端數據"""
         try:
             if not st.session_state.records:
-                # 如果完全沒數據，就傳一個只含標題的空 DataFrame
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
                 df = pd.DataFrame(st.session_state.records)
             
-            # 強制寫入第一個分頁 (worksheet=0)
-            self.conn.update(spreadsheet=self.sheet_url, worksheet=0, data=df)
+            # 💡 重點：確保這裡的 worksheet 參數是 "Sheet1" 或 0
+            # 如果你的分頁叫 Sheet1，就寫 worksheet="Sheet1"
+            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
+            
+            # 💡 成功後在網頁右下角跳出小通知
+            st.toast("✅ 雲端載體已更新！", icon="☁️")
             return True
         except Exception as e:
-            st.error(f"☁️ 雲端同步失敗，請檢查 Secrets 或網址：{e}")
+            st.error(f"☁️ 雲端同步失敗：{e}")
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
