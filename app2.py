@@ -2,8 +2,11 @@ import streamlit as st
 import json
 import os
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import io
+import uuid
+# --- 1. 新增雲端連接庫 ---
+from streamlit_gsheets import GSheetsConnection
 
 # 1. 網頁初始設定
 st.set_page_config(
@@ -12,29 +15,43 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 數據處理核心
+# 2. 數據處理核心 (升級為 Google Sheets 版)
 class WebAccounting:
     def __init__(self):
-        self.filename = 'accounting_data.json'
+        # ⚠️ 請在此處填入你的 Google Sheet 網址 (記得開啟共用權限：知道連結者可編輯)
+        self.sheet_url = "https://docs.google.com/spreadsheets/d/1-FRMOWupfqWvAlzvsvCOt8YtsW5F7b2B1n7sY32Ql7g/edit?usp=sharing"
+        
+        try:
+            # 建立 GSheets 連線
+            self.conn = st.connection("gsheets", type=GSheetsConnection)
+        except:
+            st.error("❌ 雲端連接初始化失敗")
+
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
     def load_data(self):
-        if os.path.exists(self.filename):
-            try:
-                with open(self.filename, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except: return []
-        return []
+        """從雲端讀取數據"""
+        try:
+            # 讀取數據，若表格不存在或出錯則回傳空清單
+            df = self.conn.read(spreadsheet=self.sheet_url, ttl="0") # ttl=0 確保每次都讀最新資料
+            if df.empty:
+                return []
+            return df.to_dict('records')
+        except:
+            return []
 
     def save_data(self):
+        """存入雲端數據"""
         try:
-            with open(self.filename, 'w', encoding='utf-8') as f:
-                json.dump(st.session_state.records, f, ensure_ascii=False, indent=2)
+            df = pd.DataFrame(st.session_state.records)
+            self.conn.update(spreadsheet=self.sheet_url, data=df)
+            return True
         except Exception as e:
-            st.error(f"數據存入失敗：{e}")
+            st.error(f"☁️ 雲端同步失敗：{e}")
+            return False
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
@@ -50,7 +67,8 @@ class WebAccounting:
                     break
             st.session_state.editing_id = None
         else:
-            new_id = 1 if not st.session_state.records else max(r['id'] for r in st.session_state.records) + 1
+            # 使用 UUID 確保每個紀錄都有唯一的身份標籤
+            new_id = str(uuid.uuid4())[:8]
             st.session_state.records.append({
                 'id': new_id,
                 'date': r_date.strftime('%Y-%m-%d'),
@@ -78,7 +96,6 @@ with st.sidebar:
         export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
         export_df.columns = ['日期', '收支類型', '分類', '金額', '備註']
         
-        # 改用 openpyxl 引擎，這是最通用的 Excel 引擎
         buffer = io.BytesIO()
         try:
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -92,7 +109,7 @@ with st.sidebar:
                 use_container_width=True
             )
         except Exception as e:
-            st.error("Excel 產生失敗，請確認是否安裝 openpyxl")
+            st.error("Excel 產生失敗")
     else:
         st.info("尚無數據可導出")
 
@@ -107,11 +124,8 @@ if not df.empty:
         ]
 
 # 5. UI 主介面
-
-# --- 整合後的 UI 頭部 (確保只有這一份) ---
 st.title("💰 個人理財：數據記錄帳本")
 
-from datetime import timedelta
 # 校正台灣時區 (UTC+8)
 taiwan_now = datetime.now() + timedelta(hours=8)
 now_hour = taiwan_now.hour
@@ -123,15 +137,13 @@ elif 12 <= now_hour < 18:
 else:
     greeting = "🌙 晚上好！辛苦了，整理一下今天的收支，早點休息。"
 
-# 顯示唯一的歡迎框
 st.info(f"{greeting}")
-st.caption(f"🚀 歡迎使用 **個人理財數據帳本 v1.2** | 系統時間：{taiwan_now.strftime('%H:%M')}")
+st.caption(f"🚀 雲端版 v1.3 | 系統時間：{taiwan_now.strftime('%H:%M')} | 數據載體：Google Sheets")
 st.divider()
-# -----------------------------------
+
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
 
-
-# --- Tab 1: 記帳 (已加入私密加密功能) ---
+# --- Tab 1: 記帳 ---
 with tab1:
     edit_data = None
     if st.session_state.editing_id:
@@ -145,130 +157,86 @@ with tab1:
         with col1:
             default_date = date.today()
             if edit_data:
-                # 這裡加個防錯，確保日期格式正確
-                try:
-                    default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
-                except:
-                    default_date = date.today()
+                try: default_date = datetime.strptime(edit_data['date'], '%Y-%m-%d').date()
+                except: default_date = date.today()
             r_date = st.date_input("日期", default_date)
             
         with col2:
             amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            # 增加「軟體訂閱」分類
             categories = ['薪水', '獎金', '投資', '洗衣店營收', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '娛樂', '醫療', '軟體訂閱', '其他']
-            
             cat_idx = 0
             if edit_data and edit_data['category'] in categories:
                 cat_idx = categories.index(edit_data['category'])
             category = st.selectbox("分類標籤", categories, index=cat_idx)
 
-        # 備註輸入
         note = st.text_input("備註內容", value=edit_data['note'].replace("[私密] ", "") if edit_data else "", placeholder="例如：Steam 遊戲...")
-        
-        # --- 這裡就是新加入的隱藏功能 ---
-        is_secret = st.checkbox("🤫 開啟私密模式 (在清單中隱藏具體備註內容)")
-        # ----------------------------
+        is_secret = st.checkbox("🤫 開啟私密模式")
 
-        submit_btn = st.form_submit_button("🚀 儲存紀錄", use_container_width=True)
+        submit_btn = st.form_submit_button("🚀 同步到雲端載體", use_container_width=True)
         
         if submit_btn:
             if amount > 0:
-                # 如果勾選私密，就在存檔時加上標記
                 final_note = f"[私密] {note}" if is_secret else note
                 app.add_or_update_record(r_date, r_type, amount, category, final_note)
-                st.success("數據已安全存檔！")
+                st.success("☁️ 數據已成功同步至 Google Sheets！")
                 st.rerun()
+
 import plotly.express as px
-
-# --- Tab 2: 統計分析 (完整整合版) ---
+# --- Tab 2: 統計分析 ---
 with tab2:
-        if not df.empty:
-            # --- 1. 數值概況卡片 (把消失的找回來) ---
-            total_income = df[df['type'] == '收入']['amount'].sum()
-            total_expense = df[df['type'] == '支出']['amount'].sum()
-            net_income = total_income - total_expense
-            
-            st.subheader("💰 財務概況")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("總收入", f"${total_income:,.0f}")
-            c2.metric("總支出", f"${total_expense:,.0f}", delta=f"-{total_expense:,.0f}", delta_color="inverse")
-            c3.metric("淨收入", f"${net_income:,.0f}", delta=f"{net_income:,.0f}")
-            
-            st.divider()
+    if not df.empty:
+        total_income = df[df['type'] == '收入']['amount'].sum()
+        total_expense = df[df['type'] == '支出']['amount'].sum()
+        net_income = total_income - total_expense
+        
+        st.subheader("💰 財務概況")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("總收入", f"${total_income:,.0f}")
+        c2.metric("總支出", f"${total_expense:,.0f}", delta=f"-{total_expense:,.0f}", delta_color="inverse")
+        c3.metric("淨收入", f"${net_income:,.0f}")
+        
+        st.divider()
+        st.subheader("🎯 本月預算監控")
+        current_month_str = taiwan_now.strftime('%Y-%m')
+        monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
+        this_month_expense = df[(df['type'] == '支出') & (pd.to_datetime(df['date']).dt.strftime('%Y-%m') == current_month_str)]['amount'].sum()
+        progress = min(this_month_expense / monthly_budget, 1.0)
+        st.write(f"📊 本月已花費：**${this_month_expense:,.0f}**")
+        st.progress(progress)
+        
+        expense_df = df[df['type'] == '支出']
+        if not expense_df.empty:
+            st.subheader("🍕 支出類別比例")
+            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
+            fig_pie = px.pie(cat_totals, values='amount', names='category')
+            st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("📊 雲端載體目前是空的。")
 
-            # --- 2. 預算監控 ---
-            st.subheader("🎯 本月預算監控")
-            taiwan_now = datetime.now() + timedelta(hours=8)
-            current_month_str = taiwan_now.strftime('%Y-%m')
-            monthly_budget = st.number_input("💸 設定本月支出預算", min_value=1000, value=15000, step=500)
-            
-            this_month_expense = df[(df['type'] == '支出') & (pd.to_datetime(df['date']).dt.strftime('%Y-%m') == current_month_str)]['amount'].sum()
-            progress = min(this_month_expense / monthly_budget, 1.0)
-            st.write(f"📊 本月已花費：**${this_month_expense:,.0f}** / 預算 **${monthly_budget:,.0f}**")
-            st.progress(progress)
-            st.divider()
-
-            # --- 3. 支出圓餅圖 ---
-            expense_df = df[df['type'] == '支出']
-            if not expense_df.empty:
-                st.subheader("🍕 支出類別比例")
-                cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
-                fig_pie = px.pie(cat_totals, values='amount', names='category', title='看錢都花到哪去了')
-                st.plotly_chart(fig_pie, use_container_width=True)
-            st.divider()
-
-            # --- 4. 月度趨勢圖 ---
-            st.subheader("📈 月度收支趨勢")
-            df['month_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
-            trend_df = df.groupby(['month_str', 'type'])['amount'].sum().unstack().fillna(0)
-            for col in ['支出', '收入']:
-                if col not in trend_df.columns:
-                    trend_df[col] = 0.0
-            trend_df = trend_df.reset_index()
-            fig_trend = px.bar(trend_df, x='month_str', y=['支出', '收入'], barmode='group', title="月度收支對照")
-            fig_trend.update_xaxes(type='category')
-            st.plotly_chart(fig_trend, use_container_width=True)
-            
-        else:
-            st.info("📊 數據帳本目前是空的，快去 Tab 1 記下第一筆帳吧！")
-# --- Tab 3: 歷史清單 (預設顯示當月) ---
+# --- Tab 3: 歷史清單 ---
 with tab3:
     if not df.empty:
-        # 1. 準備月份資料
         df['date_dt'] = pd.to_datetime(df['date'])
         available_months = df['date_dt'].dt.strftime('%Y-%m').unique().tolist()
         available_months.sort(reverse=True)
         
-        # 取得當前台灣月份 (格式如 '2026-02')
-        current_month_str = (datetime.now() + timedelta(hours=8)).strftime('%Y-%m')
-        
-        # 計算預設索引：如果當月有資料就選當月，否則選第一個（最新月）
+        current_month_str = taiwan_now.strftime('%Y-%m')
         default_idx = 0
         if current_month_str in available_months:
-            default_idx = available_months.index(current_month_str) + 1 # +1 是因為第一個選項是"顯示全部"
+            default_idx = available_months.index(current_month_str) + 1
 
-        # 2. 顯示篩選下拉選單
-        col_f1, col_f2 = st.columns([1, 2])
-        with col_f1:
-            selected_month = st.selectbox("📅 選擇月份觀看", ["顯示全部"] + available_months, index=default_idx)
+        selected_month = st.selectbox("📅 選擇月份", ["顯示全部"] + available_months, index=default_idx)
         
-        # 3. 執行篩選
         display_df = df.copy()
         if selected_month != "顯示全部":
             display_df = display_df[display_df['date_dt'].dt.strftime('%Y-%m') == selected_month]
 
-        # 4. 顯示邏輯
         if display_df.empty:
-            st.info(f"🔍 {selected_month} 尚無任何紀錄。")
+            st.info(f"🔍 {selected_month} 尚無紀錄。")
         else:
-            if st.session_state.editing_id:
-                if st.button("❌ 放棄修改"):
-                    st.session_state.editing_id = None
-                    st.rerun()
-
-            for _, row in display_df.sort_values(by=['date', 'id'], ascending=False).iterrows():
+            for _, row in display_df.sort_values(by=['date'], ascending=False).iterrows():
                 raw_note = row['note'] if row['note'] else '無'
-                display_note = "🔒 內容已加密 (私密項目)" if raw_note.startswith("[私密]") else raw_note
+                display_note = "🔒 內容已加密" if raw_note.startswith("[私密]") else raw_note
                 
                 with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                     st.write(f"📝 備註: {display_note}")
@@ -277,8 +245,6 @@ with tab3:
                         st.session_state.editing_id = row['id']
                         st.rerun()
                     if ec2.button("🗑️ 刪除", key=f"del_btn_{row['id']}"):
-                        st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
+                        st.session_state.records = [r for r in st.session_state.records if str(r['id']) != str(row['id'])]
                         app.save_data()
                         st.rerun()
-    else:
-        st.warning("清單是空的喔！")
