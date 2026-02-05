@@ -47,24 +47,26 @@ class WebAccounting:
     def save_data(self):
         """存入雲端數據"""
         try:
+            # 1. 準備乾淨的資料
             if not st.session_state.records:
-                # 確保欄位名稱跟試算表完全一致
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
                 df = pd.DataFrame(st.session_state.records)
             
-            # 💡 修正點 1：確保資料格式正確，移除 Pandas 自動產生的 Index
-            # 💡 修正點 2：指定 worksheet="Sheet1" (請確保試算表分頁也是這個名字)
+            # 2. 執行更新 (請確保 worksheet 名字跟左下角標籤一模一樣)
             self.conn.update(
                 spreadsheet=self.sheet_url, 
-                worksheet="Sheet1", 
+                worksheet="Sheet1",  # <--- 檢查這裡！
                 data=df
             )
-            st.toast("✅ 數據已成功寫入 Google Sheets！")
+            
+            # 3. 關鍵動作：強制清除快取，讓下次讀取是真的去雲端抓
+            st.cache_data.clear() 
+            st.toast("✅ 寫入成功！試算表已更新。")
             return True
         except Exception as e:
-            # 如果失敗，這行一定會跳出紅字，請告訴我紅字內容
-            st.error(f"☁️ 雲端寫入失敗：{e}")
+            # 如果這行沒噴紅字，代表程式「以為」成功了，但其實寫錯地方
+            st.error(f"❌ 寫入失敗，原因：{e}")
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
