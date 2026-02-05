@@ -35,48 +35,38 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 💡 確保這裡有 ttl=0
-            df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
+            # 💡 加上 ttl=0 強迫不看舊快取，每次都抓最新的
+            df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is None or df.empty:
                 return []
-            
-            # 這是我們之前的保險：過濾掉標題列
-            if 'date' in df.columns:
-                df = df[df['date'] != 'date']
-                
             return df.to_dict('records')
-        except:
+        except Exception as e:
+            st.error(f"讀取失敗: {e}")
             return []
 
     def save_data(self):
-        """強效存入雲端數據"""
+        """暴力同步法"""
         try:
-            # 1. 確保拿到目前最新、且已被刪除/修改後的清單
-            updated_data = st.session_state.records
+            # 1. 取得目前網頁上的最新紀錄
+            df = pd.DataFrame(st.session_state.records)
             
-            # 2. 轉換成 DataFrame
-            if not updated_data:
-                df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
-            else:
-                df = pd.DataFrame(updated_data)
-
-            # 3. 💡 關鍵修正：先清空快取，再執行更新
-            st.cache_data.clear() 
+            # 2. 強制清除所有快取，就像把腦袋清空重新開機
+            st.cache_data.clear()
             
-            # 4. 指定寫入，強迫 Google 更新
+            # 3. 執行更新
             self.conn.update(
                 spreadsheet=self.sheet_url, 
                 worksheet="Sheet1", 
                 data=df
             )
             
-            # 5. 💡 再次清空，確保下次讀取不會抓到「刪除前」的舊鬼影
+            # 4. 更新完後再清一次，確保下一秒讀取的是剛存進去的
             st.cache_data.clear()
             
-            st.toast("✅ 雲端同步成功！", icon="☁️")
+            st.toast("✅ 雲端載體已同步！", icon="☁️")
             return True
         except Exception as e:
-            st.error(f"❌ 寫入失敗：{e}")
+            st.error(f"❌ 無法寫入試算表，請檢查權限：{e}")
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
