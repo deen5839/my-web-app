@@ -34,13 +34,20 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 讓程式直接顯示讀取失敗的原因
             df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
             if df is None or df.empty:
                 return []
+            
+            # --- 新增這兩行：過濾掉長得像標題的廢話 ---
+            if 'date' in df.columns:
+                # 確保只留下長得像日期的資料，過濾掉寫著 "date" 字樣的列
+                df = df[df['date'] != 'date']
+            # ---------------------------------------
+            
             return df.to_dict('records')
         except Exception as e:
-            st.warning(f"💡 雲端載體連線中... (目前狀態: {e})")
+            # 暫時不要讓它當機，報錯就顯示在畫面上就好
+            st.warning(f"💡 載體初始化中... {e}")
             return []
 
     def save_data(self):
