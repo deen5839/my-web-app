@@ -19,7 +19,7 @@ st.set_page_config(
 class WebAccounting:
     def __init__(self):
         # 💡 確保這行前面有 8 個空格
-        self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit?usp=sharing"
+        self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit"
         
         try:
             # 💡 確保這行前面有 8 個空格
