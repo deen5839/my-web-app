@@ -9,57 +9,29 @@ import plotly.express as px
 
 # 1. 網頁初始設定
 st.set_page_config(
-    page_title="個人理財數據帳本-本地隱私版", 
+    page_title="個人理財數據帳本-隱私載體版", 
     page_icon="💰", 
     layout="wide"
 )
 
-# 2. 數據處理核心 (完全回歸本地存檔，保護隱私)
+# 2. 數據處理核心 (本地邏輯與上傳下載機制)
 class WebAccounting:
     def __init__(self):
-        # 定義本地存檔檔名
-        self.data_file = "my_private_data.json"
-        
-        # 💡 初始化保險：確保 session_state 變數存在
+        # 初始化 session_state，確保資料暫存在瀏覽器
         if 'records' not in st.session_state:
-            st.session_state.records = self.load_data()
+            st.session_state.records = []
         
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
-    def load_data(self):
-        """從本地電腦檔案讀取數據"""
-        if os.path.exists(self.data_file):
-            try:
-                with open(self.data_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    # 轉換為 DataFrame 確保金額格式正確再轉回 dict
-                    df = pd.DataFrame(data)
-                    if not df.empty:
-                        df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
-                        return df.to_dict('records')
-                    return []
-            except Exception as e:
-                st.error(f"讀取本地檔案出錯: {e}")
-                return []
-        return []
-
     def save_data(self):
-        """將數據存入本地電腦檔案"""
-        try:
-            # 儲存為 JSON 格式，這是最私密的本地存法
-            with open(self.data_file, "w", encoding="utf-8") as f:
-                json.dump(st.session_state.records, f, ensure_ascii=False, indent=4)
-            st.toast("✅ 資料已安全存入本地電腦！", icon="💾")
-            return True
-        except Exception as e:
-            st.error(f"本地存檔失敗: {e}")
-            return False
+        """顯示存檔成功提示，提醒使用者手動下載備份檔案"""
+        st.toast("✅ 數據已寫入暫時載體，請點擊左側下載備份！", icon="💾")
+        return True
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
-        """處理新增或編輯數據"""
+        """處理資料的新增與修改邏輯"""
         if st.session_state.editing_id is not None:
-            # 修改邏輯
             for r in st.session_state.records:
                 if r['id'] == st.session_state.editing_id:
                     r.update({
@@ -72,7 +44,6 @@ class WebAccounting:
                     break
             st.session_state.editing_id = None
         else:
-            # 新增邏輯
             new_id = str(uuid.uuid4())[:8]
             st.session_state.records.append({
                 'id': new_id, 
@@ -82,125 +53,141 @@ class WebAccounting:
                 'category': category, 
                 'note': note
             })
-        # 存檔至本地
         self.save_data()
 
 # --- 初始化應用執行 ---
 if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 
-if 'editing_id' not in st.session_state:
-    st.session_state.editing_id = None
-
 app = st.session_state.app
 
-# 3. 側邊欄：搜尋與 Excel 導出
+# 3. 側邊欄：搜尋、備份還原與隱私管理
 with st.sidebar:
-    st.header("🔍 本地數據管理")
-    search_query = st.text_input("關鍵字搜尋", placeholder="搜尋備註...", key="sidebar_search")
+    st.header("🔍 數據管理")
+    search_query = st.text_input("搜尋備註關鍵字...", placeholder="例如：加油")
     
     st.divider()
-    st.header("📊 導出 Excel")
-    
+    st.header("📤 資料還原")
+    uploaded_file = st.file_uploader("上傳 JSON 備份檔", type="json")
+    if uploaded_file is not None:
+        try:
+            st.session_state.records = json.load(uploaded_file)
+            st.success("✅ 資料已成功還原！")
+        except:
+            st.error("❌ 讀取失敗，請確認檔案格式")
+
+    st.divider()
+    st.header("📥 下載備份 (防消失)")
     if st.session_state.records:
-        export_df = pd.DataFrame(st.session_state.records)
-        export_df = export_df[['date', 'type', 'category', 'amount', 'note']]
-        export_df.columns = ['日期', '類型', '分類', '金額', '備註']
+        json_str = json.dumps(st.session_state.records, ensure_ascii=False, indent=4)
+        st.download_button(
+            label="💾 下載 JSON 備份",
+            data=json_str,
+            file_name=f"理財載體備份_{date.today()}.json",
+            mime="application/json",
+            use_container_width=True
+        )
         
+        df_exp = pd.DataFrame(st.session_state.records)
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            export_df.to_excel(writer, index=False)
-            
+            df_exp.to_excel(writer, index=False)
         st.download_button(
-            label="📥 下載 Excel 備份",
+            label="📊 導出 Excel 報表",
             data=buffer.getvalue(),
-            file_name=f"我的理財資料_{date.today()}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            file_name=f"財務月報_{date.today()}.xlsx",
             use_container_width=True
         )
     else:
-        st.info("尚無本地數據")
+        st.info("尚無數據可下載")
 
-# 4. 數據處理 (過濾)
+# 4. 數據處理
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
     if search_query:
-        df = df[df['note'].str.contains(search_query, na=False, case=False) | 
-                df['category'].str.contains(search_query, na=False, case=False)]
+        df = df[df['note'].str.contains(search_query, na=False, case=False)]
 
 # 5. UI 主介面
-st.title("💰 個人理財數據帳本 (隱私保護版)")
+st.title("💰 個人理財數據帳本 (隱私強化版)")
 
-# 台灣時區
 taiwan_now = datetime.now() + timedelta(hours=8)
 now_hour = taiwan_now.hour
-if 5 <= now_hour < 12: greeting = "🌅 早上好！"
-elif 12 <= now_hour < 18: greeting = "☀️ 下午好！"
-else: greeting = "🌙 晚上好！辛苦了。"
+if 5 <= now_hour < 12: greeting = "🌅 早上好！今日又是數據力爆棚的一天。"
+elif 12 <= now_hour < 18: greeting = "☀️ 下午好！南科陽光正美，記得喝水。"
+else: greeting = "🌙 晚上好！辛苦了，整理完早點休息。"
 
-st.info(f"{greeting} 資料目前僅儲存在您的本地電腦，具有最高隱私性。")
-st.caption(f"🚀 本地版 v2.0 | 系統時間：{taiwan_now.strftime('%H:%M')} | 不使用雲端 API")
+st.info(f"{greeting}")
+st.caption(f"🚀 穩定版 v2.6 | 系統時間：{taiwan_now.strftime('%H:%M')} | 本地隱私儲存架構")
 st.divider()
 
-tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史明細"])
+tab1, tab2, tab3 = st.tabs(["➕ 數據記帳", "📊 數據趨勢分析", "📋 歷史明細"])
 
-# --- Tab 1: 輸入 ---
+# --- Tab 1: 記帳 ---
 with tab1:
-    edit_data = None
-    if st.session_state.editing_id:
-        edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None)
-        st.warning(f"🔧 修改模式中")
+    edit_data = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None) if st.session_state.editing_id else None
+    if edit_data: st.warning(f"🔧 正在修改數據 ID: {st.session_state.editing_id}")
 
-    r_type = st.radio("類型", ["支出", "收入"], index=0 if not edit_data or edit_data['type'] == "支出" else 1, horizontal=True)
-    with st.form("input_form", clear_on_submit=(st.session_state.editing_id is None)):
-        col1, col2 = st.columns(2)
-        with col1:
+    r_type = st.radio("收支類型", ["支出", "收入"], index=0 if not edit_data or edit_data['type'] == "支出" else 1, horizontal=True)
+    with st.form("input_form", clear_on_submit=(not st.session_state.editing_id)):
+        c_a, c_b = st.columns(2)
+        with c_a:
             r_date = st.date_input("日期", datetime.strptime(edit_data['date'], '%Y-%m-%d').date() if edit_data else date.today())
-        with col2:
-            amount = st.number_input("金額", min_value=0.0, value=float(edit_data['amount']) if edit_data else 0.0)
-            cats = ['薪水', '獎金', '投資', '洗衣店營收', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '其他']
-            category = st.selectbox("分類", cats)
-        note = st.text_input("備註", value=edit_data['note'] if edit_data else "")
-        if st.form_submit_button("🚀 儲存至本機", use_container_width=True):
+        with c_b:
+            amount = st.number_input("金額 (TWD)", min_value=0.0, step=10.0, value=float(edit_data['amount']) if edit_data else 0.0)
+            cats = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '其他']
+            category = st.selectbox("分類標籤", cats)
+        note = st.text_input("備註說明", value=edit_data['note'] if edit_data else "")
+        if st.form_submit_button("🚀 寫入本地載體", use_container_width=True):
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
                 st.rerun()
 
-# --- Tab 2: 分析 ---
+# --- Tab 2: 分析 (包含預算橫向進度條) ---
 with tab2:
     if not df.empty:
-        st.subheader("💰 財務現況")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("總收入", f"${df[df['type']=='收入']['amount'].sum():,.0f}")
-        c2.metric("總支出", f"${df[df['type']=='支出']['amount'].sum():,.0f}")
-        c3.metric("淨資產", f"${df[df['type']=='收入']['amount'].sum() - df[df['type']=='支出']['amount'].sum():,.0f}")
+        total_in = df[df['type'] == '收入']['amount'].sum()
+        total_ex = df[df['type'] == '支出']['amount'].sum()
+        st.subheader("💰 財務現況概覽")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("總收入", f"${total_in:,.0f}")
+        m2.metric("總支出", f"${total_ex:,.0f}", delta=f"-{total_ex:,.0f}", delta_color="inverse")
+        m3.metric("淨資產", f"${total_in - total_ex:,.0f}")
         
         st.divider()
-        col_bar, col_pie = st.columns(2)
-        with col_bar:
-            st.plotly_chart(px.bar(df[df['type']=='收入'].groupby('category')['amount'].sum().reset_index(), x='category', y='amount', title="收入來源"), use_container_width=True)
-        with col_pie:
-            st.plotly_chart(px.pie(df[df['type']=='支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出比例", hole=0.3), use_container_width=True)
+        st.subheader("🎯 本月預算執行進度")
+        budget = st.number_input("💸 設定本月支出預算目標", min_value=1000, value=15000, step=500)
+        percent = min(total_ex / budget, 1.0)
+        
+        # 💡 這就是你要的：橫向長條圖與數據顯示
+        col_prog, col_val = st.columns([4, 1])
+        with col_prog:
+            st.progress(percent)
+        with col_val:
+            st.write(f"**{percent*100:.1f}%**")
+        st.write(f"📊 目前進度：**${total_ex:,.0f}** / ${budget:,.0f}")
         
         st.divider()
-        st.subheader("🎯 預算進度")
-        budget = st.number_input("本月預算", value=15000)
-        exp_sum = df[df['type']=='支出']['amount'].sum()
-        st.progress(min(exp_sum/budget, 1.0))
-        st.write(f"已使用: {exp_sum/budget*100:.1f}%")
-    else:
-        st.info("尚無數據")
+        col_left, col_right = st.columns(2)
+        with col_left:
+            in_df = df[df['type'] == '收入']
+            if not in_df.empty:
+                st.plotly_chart(px.bar(in_df.groupby('category')['amount'].sum().reset_index(), x='category', y='amount', title="收入來源占比", color='category'), use_container_width=True)
+        with col_right:
+            ex_df = df[df['type'] == '支出']
+            if not ex_df.empty:
+                st.plotly_chart(px.pie(ex_df.groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出類別分布", hole=0.3), use_container_width=True)
+    else: st.info("📊 尚未有數據可進行分析。")
 
 # --- Tab 3: 明細 ---
 with tab3:
     if not df.empty:
-        for _, row in df.sort_values(by=['date'], ascending=False).iterrows():
-            with st.expander(f"📅 {row['date']} | {row['type']} | ${row['amount']}"):
+        for _, row in df.sort_values(by='date', ascending=False).iterrows():
+            with st.expander(f"📅 {row['date']} | {row['type']} - ${row['amount']:,.0f}"):
                 st.write(f"📝 備註: {row['note']}")
                 ec1, ec2 = st.columns(2)
-                if ec1.button("✏️ 修改", key=f"e_{row['id']}"):
+                if ec1.button("✏️ 修改", key=f"edit_{row['id']}"):
                     st.session_state.editing_id = row['id']; st.rerun()
-                if ec2.button("🗑️ 刪除", key=f"d_{row['id']}"):
+                if ec2.button("🗑️ 刪除", key=f"del_{row['id']}"):
                     st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                     app.save_data(); st.rerun()
