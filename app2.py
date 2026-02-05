@@ -125,7 +125,7 @@ with st.sidebar:
                 data=buffer.getvalue(),
                 file_name=f"理財記錄_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+                width='stretch'  # 這裡改掉了
             )
         except Exception as e:
             st.error("Excel 產生失敗")
@@ -191,7 +191,7 @@ with tab1:
         note = st.text_input("備註內容", value=edit_data['note'].replace("[私密] ", "") if edit_data else "", placeholder="例如：Steam 遊戲...")
         is_secret = st.checkbox("🤫 開啟私密模式")
 
-        submit_btn = st.form_submit_button("🚀 同步到雲端載體", use_container_width=True)
+        submit_btn = st.form_submit_button("🚀 同步到雲端載體", width='stretch') # 這裡改掉了
         
         if submit_btn:
             if amount > 0:
@@ -228,7 +228,7 @@ with tab2:
             st.subheader("🍕 支出類別比例")
             cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
             fig_pie = px.pie(cat_totals, values='amount', names='category')
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, width='stretch')
     else:
         st.info("📊 雲端載體目前是空的。")
 
