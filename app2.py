@@ -19,7 +19,7 @@ st.set_page_config(
 class WebAccounting:
     def __init__(self):
         # 網址保持純淨
-        self.sheet_url = "[connections.gsheets]
+        self.sheet_url = [connections.gsheets]
 spreadsheet = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit?usp=sharing"
         
         try:
