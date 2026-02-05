@@ -34,39 +34,38 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 加入 ttl=0 確保不讀舊快取
+            # 💡 確保這裡有 ttl=0
             df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
             if df is None or df.empty:
                 return []
-            # 過濾掉可能被誤讀的標題行
-            df = df[df['date'].astype(str).str.contains('-')] 
+            
+            # 這是我們之前的保險：過濾掉標題列
+            if 'date' in df.columns:
+                df = df[df['date'] != 'date']
+                
             return df.to_dict('records')
-        except Exception as e:
+        except:
             return []
 
     def save_data(self):
         """存入雲端數據"""
         try:
-            # 1. 準備乾淨的資料
             if not st.session_state.records:
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
                 df = pd.DataFrame(st.session_state.records)
             
-            # 2. 執行更新 (請確保 worksheet 名字跟左下角標籤一模一樣)
-            self.conn.update(
-                spreadsheet=self.sheet_url, 
-                worksheet="Sheet1",  # <--- 檢查這裡！
-                data=df
-            )
+            # 1. 執行更新
+            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
             
-            # 3. 關鍵動作：強制清除快取，讓下次讀取是真的去雲端抓
+            # 2. 💡 加在這裡！寫入成功後，立刻清空快取
             st.cache_data.clear() 
-            st.toast("✅ 寫入成功！試算表已更新。")
+            
+            # 3. 順便加個小通知，讓你知道成功了
+            st.toast("✅ 雲端載體已同步更新！", icon="☁️")
             return True
         except Exception as e:
-            # 如果這行沒噴紅字，代表程式「以為」成功了，但其實寫錯地方
-            st.error(f"❌ 寫入失敗，原因：{e}")
+            st.error(f"☁️ 寫入失敗，請檢查權限或分頁名稱：{e}")
             return False
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
