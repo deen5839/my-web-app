@@ -35,13 +35,13 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 💡 加上 ttl=0 強迫不看舊快取，每次都抓最新的
+            # 加上 try...except 確保 400 錯誤不會鎖死網頁
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is None or df.empty:
                 return []
             return df.to_dict('records')
-        except Exception as e:
-            st.error(f"讀取失敗: {e}")
+        except:
+            # 💡 萬一 Google 噴 400 錯誤，就回傳空清單，讓網頁能開起來
             return []
 
     def save_data(self):
