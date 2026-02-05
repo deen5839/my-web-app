@@ -18,16 +18,16 @@ st.set_page_config(
 # 2. 數據處理核心 (升級為 Google Sheets 版)
 class WebAccounting:
     def __init__(self):
-        # 💡 直接定義網址字串，不要加括號
+        # 💡 確保這行前面有 8 個空格
         self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit?usp=sharing"
         
         try:
-            # 💡 建立連線 (這一行前面要有 8 個空格，對齊 self.sheet_url)
+            # 💡 確保這行前面有 8 個空格
             self.conn = st.connection("gsheets", type=GSheetsConnection)
         except Exception as e:
             st.error(f"❌ 雲端連接初始化失敗: {e}")
-        
 
+        # 💡 這裡也要對齊
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
