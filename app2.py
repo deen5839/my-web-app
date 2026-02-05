@@ -34,12 +34,13 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # ttl=0 強制每次都從雲端抓最新的，不使用快取資料
+            # 讓程式直接顯示讀取失敗的原因
             df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
             if df is None or df.empty:
                 return []
             return df.to_dict('records')
-        except:
+        except Exception as e:
+            st.warning(f"💡 雲端載體連線中... (目前狀態: {e})")
             return []
 
     def save_data(self):
