@@ -33,11 +33,10 @@ class WebAccounting:
             st.session_state.editing_id = None
 
     def load_data(self):
-        """從雲端讀取數據"""
         try:
-            # 讀取數據，若表格不存在或出錯則回傳空清單
-            df = self.conn.read(spreadsheet=self.sheet_url, ttl="0") # ttl=0 確保每次都讀最新資料
-            if df.empty:
+            # 加上 ttl=0 確保不讀舊暫存
+            df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
+            if df is None or df.empty:
                 return []
             return df.to_dict('records')
         except:
