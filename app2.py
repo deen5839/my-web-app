@@ -35,14 +35,15 @@ class WebAccounting:
 
     def load_data(self):
         try:
-            # 加上 try...except 確保 400 錯誤不會鎖死網頁
+            # 嘗試讀取
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
-            if df is None or df.empty:
-                return []
-            return df.to_dict('records')
-        except:
-            # 💡 萬一 Google 噴 400 錯誤，就回傳空清單，讓網頁能開起來
-            return []
+            if df is not None and not df.empty:
+                # 成功讀取就回傳資料
+                return df.to_dict('records')
+        except Exception as e:
+            # 💡 關鍵：如果噴 400 錯誤，我們就安靜地回傳空清單，不要噴錯誤訊息嚇你
+            pass
+        return []
 
     def save_data(self):
         try:
