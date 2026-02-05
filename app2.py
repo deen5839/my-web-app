@@ -6,6 +6,7 @@ from datetime import datetime, date, timedelta
 import io
 import uuid
 import plotly.express as px
+# --- 1. 新增雲端連接庫 ---
 from streamlit_gsheets import GSheetsConnection
 
 # 1. 網頁初始設定
@@ -15,7 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 數據處理核心 (加入 ChatGPT 文件建議的初始化保險)
+# 2. 數據處理核心 (Google Sheets 完整版)
 class WebAccounting:
     def __init__(self):
         self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit"
@@ -24,41 +25,51 @@ class WebAccounting:
         except Exception as e:
             st.error(f"❌ 雲端連接初始化失敗: {e}")
         
-        # 💡 強制初始化必要的 session_state，防止 AttributeError
+        # 💡 初始化保險：防止因雲端讀取延遲導致的 AttributeError
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
     def load_data(self):
+        """讀取雲端載體數據"""
         try:
-            # 加上 ttl=0 強迫抓取最新數據
+            # 加上 ttl=0 強迫讀取最新雲端數據
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is not None and not df.empty:
+                # 確保金額格式正確
+                df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
                 return df.to_dict('records')
         except:
+            # 若連線失敗或無權限，回傳空清單
             pass
         return []
 
     def save_data(self):
-        """同步數據至雲端"""
+        """同步數據至雲端載體"""
         try:
             if not st.session_state.records:
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
                 df = pd.DataFrame(st.session_state.records)
             
+            # 強制清除快取
             st.cache_data.clear()
-            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
+            self.conn.update(
+                spreadsheet=self.sheet_url, 
+                worksheet="Sheet1", 
+                data=df
+            )
             st.cache_data.clear()
-            st.toast("✅ 雲端同步成功！", icon="☁️")
+            st.toast("✅ 數據已成功同步至雲端載體！", icon="☁️")
             return True
         except Exception as e:
-            # 雖然失敗，但我們安靜處理，讓網頁不崩潰
+            # 400 錯誤或權限問題會攔截到這裡
             st.sidebar.error(f"⚠️ 雲端寫入攔截：{e}")
             return False
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
+        """處理新增或修改邏輯"""
         if st.session_state.editing_id is not None:
             for r in st.session_state.records:
                 if r['id'] == st.session_state.editing_id:
@@ -74,16 +85,20 @@ class WebAccounting:
         else:
             new_id = str(uuid.uuid4())[:8]
             st.session_state.records.append({
-                'id': new_id, 'date': r_date.strftime('%Y-%m-%d'),
-                'type': r_type, 'amount': amount, 'category': category, 'note': note
+                'id': new_id, 
+                'date': r_date.strftime('%Y-%m-%d'),
+                'type': r_type, 
+                'amount': amount, 
+                'category': category, 
+                'note': note
             })
         self.save_data()
 
-# --- 初始化應用實例 ---
+# --- 初始化應用實體 ---
 if 'app' not in st.session_state:
     st.session_state.app = WebAccounting()
 
-# 💡 二次保險：確保變數絕對存在
+# 二次保險：確保變數絕對存在，防止介面渲染錯誤
 if 'editing_id' not in st.session_state:
     st.session_state.editing_id = None
 if 'records' not in st.session_state:
@@ -113,14 +128,15 @@ with st.sidebar:
                 label="📥 下載 Excel 備份檔",
                 data=buffer.getvalue(),
                 file_name=f"理財記錄_{date.today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
-        except:
+        except Exception as e:
             st.error("Excel 產生失敗")
     else:
         st.info("尚無數據可導出")
 
-# 4. 數據預處理
+# 4. 數據預處理 (過濾搜尋結果)
 df = pd.DataFrame(st.session_state.records)
 if not df.empty:
     df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
@@ -133,19 +149,19 @@ if not df.empty:
 # 5. UI 主介面
 st.title("💰 個人理財：數據記錄帳本")
 
-# 台灣時區招呼語
+# 台灣時區招呼語 (UTC+8 校正)
 taiwan_now = datetime.now() + timedelta(hours=8)
 now_hour = taiwan_now.hour
 
 if 5 <= now_hour < 12:
     greeting = "🌅 早上好！今天也是充滿數據力的一天。"
 elif 12 <= now_hour < 18:
-    greeting = "☀️ 下午好！小口喝水，保持喉嚨濕潤喔。"
+    greeting = "☀️ 下午好！南科陽光正美，記得小口喝水，保持喉嚨濕潤喔。"
 else:
-    greeting = "🌙 晚上好！辛苦了，早點休息。"
+    greeting = "🌙 晚上好！辛苦了，整理一下今天的收支，早點休息。"
 
 st.info(f"{greeting}")
-st.caption(f"🚀 雲端版 v1.3 | 系統時間：{taiwan_now.strftime('%H:%M')} | 數據載體：Google Sheets")
+st.caption(f"🚀 雲端版 v1.4 | 系統時間：{taiwan_now.strftime('%H:%M')} | 數據載體：Google Sheets")
 st.divider()
 
 tab1, tab2, tab3 = st.tabs(["➕ 記帳與修正", "📊 數據分析", "📋 歷史清單"])
@@ -176,12 +192,14 @@ with tab1:
                 cat_idx = categories.index(edit_data['category'])
             category = st.selectbox("分類標籤", categories, index=cat_idx)
 
-        note = st.text_input("備註內容", value=edit_data['note'] if edit_data else "")
-        submit_btn = st.form_submit_button("🚀 同步到雲端載體")
+        note = st.text_input("備註內容", value=edit_data['note'] if edit_data else "", placeholder="例如：Steam 遊戲...")
+        
+        submit_btn = st.form_submit_button("🚀 同步到雲端載體", use_container_width=True)
         
         if submit_btn:
             if amount > 0:
                 app.add_or_update_record(r_date, r_type, amount, category, note)
+                st.success("☁️ 數據已處理完成！")
                 st.rerun()
 
 # --- Tab 2: 統計分析 ---
@@ -189,15 +207,29 @@ with tab2:
     if not df.empty:
         total_income = df[df['type'] == '收入']['amount'].sum()
         total_expense = df[df['type'] == '支出']['amount'].sum()
-        st.subheader("💰 財務概況")
-        c1, c2 = st.columns(2)
-        c1.metric("總收入", f"${total_income:,.0f}")
-        c2.metric("總支出", f"${total_expense:,.0f}")
+        net_income = total_income - total_expense
         
-        fig_pie = px.pie(df[df['type'] == '支出'], values='amount', names='category', title="支出比例")
-        st.plotly_chart(fig_pie)
+        st.subheader("💰 財務概況")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("總收入", f"${total_income:,.0f}")
+        c2.metric("總支出", f"${total_expense:,.0f}", delta=f"-{total_expense:,.0f}", delta_color="inverse")
+        c3.metric("淨收入", f"${net_income:,.0f}")
+        
+        st.divider()
+        st.subheader("🍕 支出類別比例")
+        expense_df = df[df['type'] == '支出']
+        if not expense_df.empty:
+            cat_totals = expense_df.groupby('category')['amount'].sum().reset_index()
+            fig_pie = px.pie(cat_totals, values='amount', names='category', hole=0.3)
+            st.plotly_chart(fig_pie, use_container_width=True)
+            
+        st.subheader("📊 本月預算監控")
+        budget = st.number_input("💸 設定本月支出預算", value=15000, step=500)
+        progress = min(total_expense / budget, 1.0)
+        st.write(f"目前支出進度：{progress*100:.1f}%")
+        st.progress(progress)
     else:
-        st.info("📊 目前尚無數據。")
+        st.info("📊 雲端載體目前是空的，無法進行統計。")
 
 # --- Tab 3: 歷史清單 ---
 with tab3:
@@ -206,10 +238,12 @@ with tab3:
             with st.expander(f"📅 {row['date']} | {row['type']} - {row['category']} | ${row['amount']:,.0f}"):
                 st.write(f"📝 備註: {row['note']}")
                 ec1, ec2 = st.columns(2)
-                if ec1.button("✏️ 修改", key=f"edit_{row['id']}"):
+                if ec1.button("✏️ 修改", key=f"edit_btn_{row['id']}"):
                     st.session_state.editing_id = row['id']
                     st.rerun()
-                if ec2.button("🗑️ 刪除", key=f"del_{row['id']}"):
+                if ec2.button("🗑️ 刪除", key=f"del_btn_{row['id']}"):
                     st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                     app.save_data()
                     st.rerun()
+    else:
+        st.info("📋 尚無歷史紀錄。")
