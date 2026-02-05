@@ -92,7 +92,7 @@ if not df.empty:
         df = df[df['note'].str.contains(search_query, na=False, case=False)]
 
 # 5. UI 主介面
-st.title("💰 個人理財數據帳本 (隱私強化版)")
+st.title("💰 個人理財數據帳本 ")
 
 taiwan_now = datetime.now() + timedelta(hours=8)
 now_hour = taiwan_now.hour
