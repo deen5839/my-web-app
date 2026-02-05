@@ -18,59 +18,43 @@ st.set_page_config(
 # 2. 數據處理核心 (升級為 Google Sheets 版)
 class WebAccounting:
     def __init__(self):
-        # 💡 確保這行前面有 8 個空格
         self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit"
-        
         try:
-            # 💡 確保這行前面有 8 個空格
             self.conn = st.connection("gsheets", type=GSheetsConnection)
         except Exception as e:
             st.error(f"❌ 雲端連接初始化失敗: {e}")
-
-        # 💡 這裡也要對齊
+        
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
             st.session_state.editing_id = None
 
-    
-def load_data(self):
+    def load_data(self):
         try:
-            # 1. 嘗試連線並讀取 (拿掉所有不必要的參數，只留網址)
-            df = self.conn.read(spreadsheet=self.sheet_url, ttl=0)
-            
-            # 2. 如果真的有抓到東西，才進行轉換
+            df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is not None and not df.empty:
-                # 這裡過濾掉可能的空列
-                df = df.dropna(subset=['date', 'amount'], how='all')
                 return df.to_dict('records')
-            
-            # 3. 如果抓到的是空的，就回傳空清單
-            return []
-        except Exception as e:
-            # 💡 這裡是重點：如果讀取失敗(400錯誤)，我們就回傳空清單
-            # 這樣網頁雖然是空的，但你「可以」開始輸入新資料，按下儲存後它會重新建立格式
-            return []
+        except:
+            pass
+        return []
+
     def save_data(self):
+        """同步數據至雲端"""
         try:
-            df = pd.DataFrame(st.session_state.records)
+            if not st.session_state.records:
+                df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
+            else:
+                df = pd.DataFrame(st.session_state.records)
             
-            # 💡 強制確保欄位順序與名稱完全正確
-            df = df[['id', 'date', 'type', 'amount', 'category', 'note']]
-            
-            # 確保 amount 是數字類型，其餘是字串
-            df['amount'] = pd.to_numeric(df['amount'])
-            
-            self.conn.update(
-                spreadsheet=self.sheet_url, 
-                worksheet="Sheet1", 
-                data=df
-            )
             st.cache_data.clear()
-            st.toast("✅ 同步成功！")
+            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
+            st.cache_data.clear()
+            st.toast("✅ 雲端同步成功！", icon="☁️")
+            return True
         except Exception as e:
-            st.error(f"讀取失敗: {e}") # 就是這裡噴出 400
+            st.error(f"❌ 寫入失敗：{e}")
             return False
+
     def add_or_update_record(self, r_date, r_type, amount, category, note):
         if st.session_state.editing_id is not None:
             for r in st.session_state.records:
@@ -85,15 +69,10 @@ def load_data(self):
                     break
             st.session_state.editing_id = None
         else:
-            # 使用 UUID 確保每個紀錄都有唯一的身份標籤
             new_id = str(uuid.uuid4())[:8]
             st.session_state.records.append({
-                'id': new_id,
-                'date': r_date.strftime('%Y-%m-%d'),
-                'type': r_type,
-                'amount': amount,
-                'category': category,
-                'note': note
+                'id': new_id, 'date': r_date.strftime('%Y-%m-%d'),
+                'type': r_type, 'amount': amount, 'category': category, 'note': note
             })
         self.save_data()
 
