@@ -15,15 +15,18 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. 數據處理核心 (升級為 Google Sheets 版)
+# 2. 數據處理核心 (強化連線版)
 class WebAccounting:
     def __init__(self):
+        # 💡 使用最乾淨的網址
         self.sheet_url = "https://docs.google.com/spreadsheets/d/1wc7rLawk5i6gfMEFw8p9hK_gUFlUIvCuL6-FPETNsw8/edit"
+        
         try:
             self.conn = st.connection("gsheets", type=GSheetsConnection)
         except Exception as e:
-            st.error(f"❌ 雲端連接初始化失敗: {e}")
-        
+            st.error(f"❌ 雲端連線失敗: {e}")
+
+        # 確保初始化
         if 'records' not in st.session_state:
             st.session_state.records = self.load_data()
         if 'editing_id' not in st.session_state:
@@ -31,28 +34,41 @@ class WebAccounting:
 
     def load_data(self):
         try:
+            # 💡 強制 ttl=0，每次都從雲端抓最新的，不留快取
             df = self.conn.read(spreadsheet=self.sheet_url, worksheet="Sheet1", ttl=0)
             if df is not None and not df.empty:
+                # 過濾掉標題列重複的情況
+                df = df[df['amount'].notnull()]
                 return df.to_dict('records')
-        except:
+        except Exception as e:
+            # 讀取失敗時，如果是因為 400，代表雲端是空的，回傳空清單
             pass
         return []
 
     def save_data(self):
-        """同步數據至雲端"""
         try:
+            # 1. 整理數據，確保格式正確
             if not st.session_state.records:
                 df = pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             else:
                 df = pd.DataFrame(st.session_state.records)
             
+            # 2. 強制清空全網頁快取
             st.cache_data.clear()
-            self.conn.update(spreadsheet=self.sheet_url, worksheet="Sheet1", data=df)
+            
+            # 3. 寫入雲端 (指定 worksheet)
+            self.conn.update(
+                spreadsheet=self.sheet_url, 
+                worksheet="Sheet1", 
+                data=df
+            )
+            
+            # 4. 再次清空快取，確保 load_data 抓到的是剛寫進去的
             st.cache_data.clear()
-            st.toast("✅ 雲端同步成功！", icon="☁️")
+            st.toast("✅ 數據已成功存入 AI 晶片載體！", icon="🚀")
             return True
         except Exception as e:
-            st.error(f"❌ 寫入失敗：{e}")
+            st.error(f"❌ 雲端寫入攔截：{e}")
             return False
 
     def add_or_update_record(self, r_date, r_type, amount, category, note):
@@ -61,10 +77,8 @@ class WebAccounting:
                 if r['id'] == st.session_state.editing_id:
                     r.update({
                         'date': r_date.strftime('%Y-%m-%d'),
-                        'type': r_type,
-                        'amount': amount,
-                        'category': category,
-                        'note': note
+                        'type': r_type, 'amount': amount,
+                        'category': category, 'note': note
                     })
                     break
             st.session_state.editing_id = None
@@ -72,8 +86,10 @@ class WebAccounting:
             new_id = str(uuid.uuid4())[:8]
             st.session_state.records.append({
                 'id': new_id, 'date': r_date.strftime('%Y-%m-%d'),
-                'type': r_type, 'amount': amount, 'category': category, 'note': note
+                'type': r_type, 'amount': amount,
+                'category': category, 'note': note
             })
+        # 💡 新增完立刻執行存檔
         self.save_data()
 
 if 'app' not in st.session_state:
