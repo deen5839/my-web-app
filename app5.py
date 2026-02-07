@@ -70,27 +70,44 @@ app = st.session_state.app
 # ==========================================
 target_url = None
 with st.sidebar:
-    st.header("🔐 帳本權限與搜尋")
+    st.header("🔐 App 設定與搜尋")
     try: robot_email = st.secrets["connections"]["gsheets"]["client_email"]
     except: robot_email = "請檢查 Secrets"
 
-    user_type = st.radio("您的身份：", ["我是訪客 (同學/朋友)", "我是管理員 (本人)"])
+    user_type = st.radio("您的身份：", ["我是訪客", "我是管理員 (本人)"], index=0 if auto_url else 1)
     
     if user_type == "我是管理員 (本人)":
-        pwd = st.text_input("🔑 管理員密碼", type="password")
+        pwd = st.text_input("🔑 密碼", type="password")
         if pwd == "5839":
-            st.success("管理員模式已啟動")
             try: target_url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-            except: st.error("Secrets 缺少預設網址")
-        else: st.warning("請輸入正確密碼")
+            except: st.error("Secrets 缺少網址")
+        else: st.warning("請輸入密碼")
     else:
-        st.info("👋 歡迎！請使用您的試算表")
-        st.code(robot_email, language="text")
-        st.caption("第一步：複製 Email 分享試算表")
-        custom_url = st.text_input("🔗 第二步：貼上您的網址", placeholder="https://docs.google.com/...")
-        if custom_url: target_url = custom_url
+        st.info("👋 專屬帳本模式")
+        if auto_url:
+            st.success("✅ 已自動載入您的帳本")
+            target_url = auto_url
+        else:
+            st.code(robot_email, language="text")
+            st.caption("1. 複製 Email 分享表格權限")
+            custom_url = st.text_input("🔗 2. 貼上您的網址", placeholder="https://docs.google.com/...")
+            if custom_url: 
+                target_url = custom_url
+                # --- 新增：魔法連結生成器 ---
+                try:
+                    # 從網址抓出 ID
+                    sheet_id = custom_url.split("/d/")[1].split("/")[0]
+                    # 取得目前 App 的主網址 (去網址參數)
+                    base_url = st.get_option("browser.gatherUsageStats") # 這裡簡化處理
+                    st.write("---")
+                    st.success("✨ 成功連接！")
+                    st.write("這是您的**專屬登入連結**，請存到 LINE 記事本，下次點開直接記帳：")
+                    # 假設你的 app 網址是 your-app.streamlit.app
+                    st.code(f"https://your-app.streamlit.app/?s={sheet_id}", language="text")
+                except:
+                    pass
 
-    if st.button("🔄 同步資料庫"): st.rerun()
+    if st.button("🔄 同步數據"): st.rerun()
     
     st.divider()
     # --- 搜尋功能強化為「數據紀錄搜尋」 ---
