@@ -18,14 +18,20 @@ class CloudAccounting:
         try:
             self.conn = st.connection("gsheets", type=GSheetsConnection)
             self.is_connected = True
-        except:
+        except Exception as e:
+            st.error(f"⚠️ 連線初始化失敗：{e}")
             self.is_connected = False
-        if 'records' not in st.session_state: st.session_state.records = []
-        if 'editing_id' not in st.session_state: st.session_state.editing_id = None
 
-   def load_data(self, sheet_url=None):
-        if not self.is_connected or not sheet_url: return []
+        if 'records' not in st.session_state:
+            st.session_state.records = []
+        if 'editing_id' not in st.session_state:
+            st.session_state.editing_id = None
+
+    def load_data(self, sheet_url=None):
+        if not self.is_connected or not sheet_url: 
+            return []
         try:
+            # 讀取試算表資料
             df = self.conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=0)
             if df is not None and not df.empty:
                 df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
@@ -33,18 +39,21 @@ class CloudAccounting:
                 st.session_state.records = df.to_dict('records')
                 return st.session_state.records
         except Exception as e:
-            # 💡 改成這一行，讓程式把真正的錯誤訊息噴出來！
+            # 💡 這行會顯示真正的讀取錯誤，幫助診斷為什麼沒數據
             st.error(f"🚨 讀取發生錯誤：{e}")
         return []
 
     def save_data(self, sheet_url=None):
-        if not self.is_connected or not sheet_url: return False
+        if not self.is_connected or not sheet_url: 
+            return False
         try:
             df = pd.DataFrame(st.session_state.records) if st.session_state.records else pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
             self.conn.update(spreadsheet=sheet_url, worksheet="Sheet1", data=df)
-            st.toast("✅ 數據已同步", icon="☁️")
+            st.toast("✅ 數據已成功同步！", icon="☁️")
             return True
-        except: return False
+        except Exception as e:
+            st.error(f"❌ 寫入失敗：{e}")
+            return False
 
     def add_or_update(self, r_date, r_type, amount, category, note, sheet_url=None):
         if st.session_state.editing_id:
