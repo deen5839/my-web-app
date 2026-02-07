@@ -23,7 +23,7 @@ class CloudAccounting:
         if 'records' not in st.session_state: st.session_state.records = []
         if 'editing_id' not in st.session_state: st.session_state.editing_id = None
 
-    def load_data(self, sheet_url=None):
+   def load_data(self, sheet_url=None):
         if not self.is_connected or not sheet_url: return []
         try:
             df = self.conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=0)
@@ -32,7 +32,9 @@ class CloudAccounting:
                 df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
                 st.session_state.records = df.to_dict('records')
                 return st.session_state.records
-        except: pass
+        except Exception as e:
+            # 💡 改成這一行，讓程式把真正的錯誤訊息噴出來！
+            st.error(f"🚨 讀取發生錯誤：{e}")
         return []
 
     def save_data(self, sheet_url=None):
