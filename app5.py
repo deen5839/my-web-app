@@ -10,12 +10,12 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 st.set_page_config(page_title="雲端理財旗艦版", page_icon="📈", layout="wide")
 
-# 修改後的 CSS：移除 h2 的藍色左邊框 (border-left)
+# CSS：維持大標題與無邊框樣式
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 28px !important; font-weight: bold; }
     h1 { color: #1E88E5; padding-top: 10px; margin-bottom: 0px; }
-    h2 { color: #424242; margin-top: 20px; } /* 移除藍色直線，僅保留顏色與間距 */
+    h2 { color: #424242; margin-top: 20px; }
     .report-box { border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; background-color: #fcfcfc; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
@@ -72,7 +72,7 @@ if 'app' not in st.session_state: st.session_state.app = CloudAccounting()
 app = st.session_state.app
 
 # ==========================================
-# 3. 登入設定
+# 3. 登入與側邊欄 (搜尋功能加回在此)
 # ==========================================
 params = st.query_params
 url_id = params.get("s")
@@ -98,26 +98,34 @@ with st.sidebar:
     
     st.divider()
     if st.button("🔄 刷新雲端資料"): app.load_data(target_url); st.rerun()
+    
+    # --- 搜尋功能回歸 ---
+    search_query = st.text_input("🔍 搜尋歷史紀錄", placeholder="搜尋分類、金額或備註")
+    
     if st.session_state.records:
         csv = pd.DataFrame(st.session_state.records).to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 下載 CSV 備份", data=csv, file_name=f"finance_{date.today()}.csv")
 
 # ==========================================
-# 4. 主介面顯示
+# 4. 主介面顯示 (含搜尋過濾邏輯)
 # ==========================================
 if target_url:
     if not st.session_state.records: app.load_data(target_url)
     df = pd.DataFrame(st.session_state.records)
     
+    # --- 關鍵字過濾邏輯 ---
+    if not df.empty and search_query:
+        df = df[df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)]
+
     tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
+    # --- Tab 2: 數據分析 (維持 3.1 旗艦版配置) ---
     with tab2:
         if not df.empty:
             df['date_obj'] = pd.to_datetime(df['date'])
             df = df.sort_values('date_obj')
             now = datetime.now()
             
-            # --- 【 A. 年度全局結算大標題 】 ---
             st.markdown(f"# 🏆 {now.year} 年度全局報告")
             year_df = df[df['date_obj'].dt.year == now.year]
             y_in = year_df[year_df['type'] == '收入']['amount'].sum()
@@ -130,17 +138,14 @@ if target_url:
             y3.metric("年度總結餘", f"${y_in - y_ex:,.0f}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-            # --- 【 B. 當月預算進度條 】 ---
             st.subheader("🎯 當月預算執行進度")
             curr_month_str = now.strftime('%Y-%m')
             this_month_ex = df[(df['date_obj'].dt.strftime('%Y-%m') == curr_month_str) & (df['type'] == '支出')]['amount'].sum()
-            
             budget = st.number_input("設定每月預算上限：", min_value=1000, value=20000, step=1000)
             progress = min(this_month_ex / budget, 1.0)
             st.progress(progress)
             st.write(f"本月已花費: **${this_month_ex:,.0f}** / 預算: **${budget:,.0f}** ({progress*100:.1f}%)")
 
-            # --- 【 C. 月份下拉詳細查詢 】 ---
             st.divider()
             st.markdown("## 📊 月份細節查詢")
             df['month_key'] = df['date_obj'].dt.strftime('%Y-%m')
@@ -156,7 +161,6 @@ if target_url:
             m2.metric("該月支出", f"${m_ex:,.0f}")
             m3.metric("該月餘額", f"${m_in - m_ex:,.0f}")
 
-            # --- 【 D. 圖表區 】 ---
             st.divider()
             g1, g2 = st.columns(2)
             with g1:
@@ -174,8 +178,8 @@ if target_url:
             df['net_val'] = df.apply(lambda x: x['amount'] if x['type'] == '收入' else -x['amount'], axis=1)
             df['cumulative'] = df['net_val'].cumsum()
             st.plotly_chart(px.line(df, x='date_obj', y='cumulative', markers=True, title="總資產變化歷程"), use_container_width=True)
-        else: st.info("尚無數據，請先記帳！")
 
+    # --- Tab 1: 記帳 & Tab 3: 明細 (保持穩定) ---
     with tab1:
         edit_item = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None) if st.session_state.editing_id else None
         r_type = st.radio("收支類型", ["支出", "收入"], index=0 if not edit_item or edit_item['type'] == "支出" else 1, horizontal=True)
@@ -208,6 +212,7 @@ if target_url:
                         if b2.button("🗑️", key=f"d_{row['id']}"): 
                             st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                             app.save_data(target_url); st.rerun()
+        else: st.info("尚無資料，或搜尋無匹配結果。")
 else:
     st.title("💰 歡迎使用雲端理財系統")
-    st.warning("👈 請在左側選單選擇身份登入")
+    st.warning("👈 請在左側選單登入")
