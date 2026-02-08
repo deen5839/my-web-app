@@ -11,13 +11,14 @@ from streamlit_gsheets import GSheetsConnection
 st.set_page_config(page_title="雲端理財旗艦版", page_icon="📈", layout="wide")
 
 # 加點 CSS 修正你看到的「數字被擋住」問題
+# 修正後的第 14 行
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 32px; font-weight: bold; }
     h1 { color: #1E88E5; padding-bottom: 0px; }
     .report-box { border: 2px solid #f0f2f6; border-radius: 10px; padding: 20px; background-color: #f8f9fb; margin-bottom: 20px; }
     </style>
-    """, unsafe_allow_name_search=True)
+    """, unsafe_allow_html=True) # 注意這裡改成了 unsafe_allow_html
 
 # ==========================================
 # 2. 核心邏輯控制器
