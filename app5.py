@@ -172,14 +172,14 @@ if target_url:
         else: st.info("尚無數據。")
 
              # --- 當月消費進度 ---
-            st.subheader("🎯 當月消費進度")
-            curr_month = datetime.now().strftime('%Y-%m')
-            month_ex = df[(pd.to_datetime(df['date']).dt.strftime('%Y-%m') == curr_month) & (df['type'] == '支出')]['amount'].sum()
-            budget = st.number_input("設定每月預算", min_value=1, value=20000)
-            st.progress(min(month_ex/budget, 1.0))
-            st.write(f"本月累計支出: **${month_ex:,.0f}** / ${budget:,.0f}")
+             st.subheader("🎯 當月消費進度")
+             curr_month = datetime.now().strftime('%Y-%m')
+             month_ex = df[(pd.to_datetime(df['date']).dt.strftime('%Y-%m') == curr_month) & (df['type'] == '支出')]['amount'].sum()
+             budget = st.number_input("設定每月預算", min_value=1, value=20000)
+             st.progress(min(month_ex/budget, 1.0))
+             st.write(f"本月累計支出: **${month_ex:,.0f}** / ${budget:,.0f}")
 
-            st.divider()
+             st.divider()
 
     # --- Tab 3: 明細 (新增編輯與刪除按鈕) ---
     with tab3:
