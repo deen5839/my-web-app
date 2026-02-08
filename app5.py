@@ -117,22 +117,21 @@ if target_url:
     if not df.empty and search_query:
         df = df[df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)]
     st.title("💰 雲端理財記帳本")
-    # 校正台灣時間 (UTC+8)
-tw_now = datetime.now() + timedelta(hours=8)
-curr_hour = tw_now.hour
+    tw_now = datetime.now() + timedelta(hours=8)
+    curr_hour = tw_now.hour
 
-if 5 <= curr_hour < 12:
-    msg = "🌅 早上好！今日又是數據力爆棚的一天。"
-elif 12 <= curr_hour < 18:
-    msg = "☀️ 下午好！工作辛苦了，記得適時休息。"
-else:
-    msg = "🌙 晚上好！整理完今日收支，早點休息。"
+    if 5 <= curr_hour < 12:
+        msg = "🌅 早上好！今日又是數據力爆棚的一天。"
+    elif 12 <= curr_hour < 18:
+        msg = "☀️ 下午好！工作辛苦了，記得適時休息。"
+    else:
+        msg = "🌙 晚上好！整理完今日收支，早點休息。"
 
-st.info(f"{msg}")
-st.caption(f"🚀 穩定版 v2.8 | 系統時間：{tw_now.strftime('%H:%M')} | 隱私保護架構")
-st.divider()
+    st.info(f"{msg}")
+    st.caption(f"🚀 穩定版 v2.8 | 系統時間：{tw_now.strftime('%H:%M')} | 隱私保護架構")
+    st.divider()
     
-tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
+    tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
     # --- Tab 2: 數據分析 (維持 3.1 旗艦版配置) ---
     with tab2:
