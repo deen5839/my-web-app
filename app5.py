@@ -8,7 +8,7 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 # 1. 網頁初始設定
 # ==========================================
-st.set_page_config(page_title="雲端理財旗艦版", page_icon="📈", layout="wide")
+st.set_page_config(page_title="雲端理財旗艦版", page_icon="💰", layout="wide")
 
 # CSS：維持大標題與無邊框樣式
 st.markdown("""
