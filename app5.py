@@ -171,7 +171,7 @@ if target_url:
             with g2: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比", hole=0.3), use_container_width=True)
         else: st.info("尚無數據。")
 
-             # --- 當月消費進度 ---
+            # --- 當月消費進度 ---
             st.subheader("🎯 當月消費進度")
             curr_month = datetime.now().strftime('%Y-%m')
             month_ex = df[(pd.to_datetime(df['date']).dt.strftime('%Y-%m') == curr_month) & (df['type'] == '支出')]['amount'].sum()
