@@ -116,7 +116,9 @@ if target_url:
     # --- 關鍵字過濾邏輯 ---
     if not df.empty and search_query:
         df = df[df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)]
-
+    st.title("💰 雲端記帳本")
+    st.caption(f"使用中帳本：...{target_url[-10:] if target_url else ''}")
+    st.divider()
     tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
     # --- Tab 2: 數據分析 (維持 3.1 旗艦版配置) ---
