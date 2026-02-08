@@ -170,7 +170,8 @@ if target_url:
             with g1: st.plotly_chart(px.bar(df[df['type'] == '收入'].groupby('category')['amount'].sum().reset_index(), x='category', y='amount', title="收入來源", color='category'), use_container_width=True)
             with g2: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比", hole=0.3), use_container_width=True)
         else: st.info("尚無數據。")
-
+            st.divider()
+        
             # --- 當月消費進度 ---
             st.subheader("🎯 當月消費進度")
             curr_month = datetime.now().strftime('%Y-%m')
