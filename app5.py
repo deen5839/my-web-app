@@ -171,6 +171,16 @@ if target_url:
             with g2: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比", hole=0.3), use_container_width=True)
         else: st.info("尚無數據。")
 
+             # --- 當月消費進度 ---
+            st.subheader("🎯 當月消費進度")
+            curr_month = datetime.now().strftime('%Y-%m')
+            month_ex = df[(pd.to_datetime(df['date']).dt.strftime('%Y-%m') == curr_month) & (df['type'] == '支出')]['amount'].sum()
+            budget = st.number_input("設定每月預算", min_value=1, value=20000)
+            st.progress(min(month_ex/budget, 1.0))
+            st.write(f"本月累計支出: **${month_ex:,.0f}** / ${budget:,.0f}")
+
+            st.divider()
+
     # --- Tab 3: 明細 (新增編輯與刪除按鈕) ---
     with tab3:
         if not df.empty:
