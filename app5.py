@@ -132,7 +132,6 @@ if target_url:
         r_type = st.radio("收支類型", ["支出", "收入"], index=0 if not edit_item or edit_item['type'] == "支出" else 1, horizontal=True)
         with st.form("entry_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            # 處理日期預設值
             try:
                 default_date = datetime.strptime(edit_item['date'], '%Y-%m-%d').date() if edit_item else date.today()
             except:
@@ -165,13 +164,8 @@ if target_url:
             m1.metric("累積總收入", f"${total_in:,.0f}")
             m2.metric("累積總支出", f"${total_ex:,.0f}", delta=f"-{total_ex:,.0f}", delta_color="inverse")
             m3.metric("淨收入 (餘額)", f"${total_in - total_ex:,.0f}")
+            
             st.divider()
-            g1, g2 = st.columns(2)
-            with g1: st.plotly_chart(px.bar(df[df['type'] == '收入'].groupby('category')['amount'].sum().reset_index(), x='category', y='amount', title="收入來源", color='category'), use_container_width=True)
-            with g2: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比", hole=0.3), use_container_width=True)
-        else: st.info("尚無數據。")
-                    
-             # --- 當月消費進度 ---
             st.subheader("🎯 當月消費進度")
             curr_month = datetime.now().strftime('%Y-%m')
             month_ex = df[(pd.to_datetime(df['date']).dt.strftime('%Y-%m') == curr_month) & (df['type'] == '支出')]['amount'].sum()
@@ -180,17 +174,19 @@ if target_url:
             st.write(f"本月累計支出: **${month_ex:,.0f}** / ${budget:,.0f}")
 
             st.divider()
+            g1, g2 = st.columns(2)
+            with g1: st.plotly_chart(px.bar(df[df['type'] == '收入'].groupby('category')['amount'].sum().reset_index(), x='category', y='amount', title="收入來源", color='category'), use_container_width=True)
+            with g2: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比", hole=0.3), use_container_width=True)
+        else: st.info("尚無數據紀錄。")
 
-    # --- Tab 3: 明細 (新增編輯與刪除按鈕) ---
+    # --- Tab 3: 明細 ---
     with tab3:
         if not df.empty:
-            # 建立月份清單
             df['month'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
             months = sorted(df['month'].unique(), reverse=True)
             
             for m in months:
                 with st.expander(f"📅 {m} 月份紀錄", expanded=True):
-                    # 篩選該月資料
                     m_df = df[df['month'] == m].sort_values(by='date', ascending=False)
                     
                     # 標題列
@@ -202,26 +198,21 @@ if target_url:
                     h5.write("**操作**")
                     st.divider()
 
-                    # 逐行顯示資料與按鈕
                     for _, row in m_df.iterrows():
                         col_date, col_cat, col_note, col_amt, col_act = st.columns([2, 2, 3, 2, 2])
                         col_date.write(row['date'])
                         col_cat.write(row['category'])
                         col_note.write(row['note'])
                         
-                        # 收入顯示綠色，支出顯示紅色
                         color = "green" if row['type'] == "收入" else "red"
-                        col_amt.write(f":{color}[${row['amount']:,.0f}]")
+                        col_amt.markdown(f"**:{color}[${row['amount']:,.0f}]**")
                         
-                        # 操作按鈕
                         btn_col1, btn_col2 = col_act.columns(2)
-                        # 編輯按鈕
                         if btn_col1.button("✏️", key=f"edit_{row['id']}"):
                             st.session_state.editing_id = row['id']
                             st.toast("請切換到『快速記帳』分頁進行修改")
                             st.rerun()
                         
-                        # 刪除按鈕
                         if btn_col2.button("🗑️", key=f"del_{row['id']}"):
                             st.session_state.records = [r for r in st.session_state.records if r['id'] != row['id']]
                             app.save_data(target_url)
