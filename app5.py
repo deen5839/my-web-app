@@ -91,7 +91,6 @@ with st.sidebar:
     if st.button("🔄 刷新雲端資料"):
         app.load_data(target_url); st.rerun()
     
-    # 功能加強：CSV 匯出按鈕
     if st.session_state.records:
         csv = pd.DataFrame(st.session_state.records).to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 下載備份 (CSV)", data=csv, file_name=f"finance_backup_{date.today()}.csv", mime="text/csv")
@@ -125,54 +124,82 @@ if target_url:
                     app.add_or_update(r_date, r_type, r_amount, r_cat, r_note, target_url)
                     st.rerun()
 
+    # --- Tab 2: 趨勢分析 (強化結算功能) ---
     with tab2:
         if not df.empty:
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
+            now = datetime.now()
             
-            # 1. 年度結算指標
-            this_year = datetime.now().year
-            year_df = df[df['date'].dt.year == this_year]
+            # --- A. 月與年度結算指標 ---
+            st.subheader("🏁 財務結算報告")
+            
+            # 計算本月資料
+            curr_month_str = now.strftime('%Y-%m')
+            month_df = df[df['date'].dt.strftime('%Y-%m') == curr_month_str]
+            m_in = month_df[month_df['type'] == '收入']['amount'].sum()
+            m_ex = month_df[month_df['type'] == '支出']['amount'].sum()
+            m_net = m_in - m_ex
+            
+            # 計算年度資料
+            curr_year = now.year
+            year_df = df[df['date'].dt.year == curr_year]
             y_in = year_df[year_df['type'] == '收入']['amount'].sum()
             y_ex = year_df[year_df['type'] == '支出']['amount'].sum()
-            
-            st.subheader(f"📅 {this_year} 年度結算")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("年總收入", f"${y_in:,.0f}")
-            c2.metric("年總支出", f"${y_ex:,.0f}", delta=f"-{y_ex:,.0f}", delta_color="inverse")
-            c3.metric("年純利 (儲蓄)", f"${y_in - y_ex:,.0f}")
-            
-            # 2. 功能加強：資產增長趨勢圖
+            y_net = y_in - y_ex
+
+            # 顯示指標
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.info(f"📅 {now.strftime('%m')} 月份結算")
+                ma, mb, mc = st.columns(3)
+                ma.metric("本月收入", f"${m_in:,.0f}")
+                mb.metric("本月支出", f"${m_ex:,.0f}", delta=f"-{m_ex:,.0f}", delta_color="inverse")
+                mc.metric("本月餘額", f"${m_net:,.0f}", delta=f"{'盈餘' if m_net>=0 else '透支'}")
+                
+            with col_b:
+                st.success(f"🎊 {curr_year} 年度結算")
+                ya, yb, yc = st.columns(3)
+                ya.metric("年度總收入", f"${y_in:,.0f}")
+                yb.metric("年度總支出", f"${y_ex:,.0f}", delta=f"-{y_ex:,.0f}", delta_color="inverse")
+                yc.metric("年度總純利", f"${y_net:,.0f}", delta=f"儲蓄率 {(y_net/y_in*100 if y_in>0 else 0):.1f}%")
+
+            # --- B. 資產成長趨勢 ---
             st.divider()
             st.subheader("📈 資產增長趨勢")
             df['net_val'] = df.apply(lambda x: x['amount'] if x['type'] == '收入' else -x['amount'], axis=1)
             df['cumulative_balance'] = df['net_val'].cumsum()
-            st.plotly_chart(px.line(df, x='date', y='cumulative_balance', title="總資產變化曲線", markers=True), use_container_width=True)
+            st.plotly_chart(px.line(df, x='date', y='cumulative_balance', title="總資產變化曲線 (累計餘額)", markers=True, color_discrete_sequence=['#00CC96']), use_container_width=True)
             
-            # 3. 消費佔比
+            # --- C. 消費分布分析 ---
             st.divider()
             g1, g2 = st.columns(2)
-            with g1: st.plotly_chart(px.pie(df[df['type'] == '支出'].groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="支出占比"), use_container_width=True)
+            with g1:
+                # 支出占比圓餅圖
+                exp_df = df[df['type'] == '支出']
+                if not exp_df.empty:
+                    st.plotly_chart(px.pie(exp_df.groupby('category')['amount'].sum().reset_index(), values='amount', names='category', title="全期間支出類別分布", hole=0.4), use_container_width=True)
+                else: st.write("尚無支出數據")
             with g2:
-                # 每月收支對比圖
+                # 每月收支對比柱狀圖
                 df['month'] = df['date'].dt.strftime('%Y-%m')
                 month_group = df.groupby(['month', 'type'])['amount'].sum().reset_index()
-                st.plotly_chart(px.bar(month_group, x='month', y='amount', color='type', barmode='group', title="每月收支對比"), use_container_width=True)
+                st.plotly_chart(px.bar(month_group, x='month', y='amount', color='type', barmode='group', title="歷史每月收支對比", color_discrete_map={'收入': '#00CC96', '支出': '#EF553B'}), use_container_width=True)
         else: st.info("尚無數據。")
 
     with tab3:
         if not df.empty:
             df['month_key'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m')
             for m in sorted(df['month_key'].unique(), reverse=True):
-                with st.expander(f"📅 {m} 月份紀錄", expanded=True):
+                with st.expander(f"📅 {m} 月份明細紀錄", expanded=(m == now.strftime('%Y-%m'))):
                     m_df = df[df['month_key'] == m].sort_values(by='date', ascending=False)
                     for _, row in m_df.iterrows():
-                        col1, col2, col3, col4 = st.columns([3, 4, 3, 2])
-                        col1.write(f"📅 {row['date'].strftime('%m-%d')}")
+                        col1, col2, col3, col4 = st.columns([2, 5, 3, 2])
+                        col1.write(f"{row['date'].strftime('%m-%d')}")
                         col2.write(f"**{row['category']}** | {row['note']}")
                         color = "green" if row['type'] == "收入" else "red"
                         col3.markdown(f"**:{color}[${row['amount']:,.0f}]**")
-                        # 按鈕區
+                        # 操作按鈕
                         b1, b2 = col4.columns(2)
                         if b1.button("✏️", key=f"e_{row['id']}"): st.session_state.editing_id = row['id']; st.rerun()
                         if b2.button("🗑️", key=f"d_{row['id']}"): 
@@ -181,4 +208,4 @@ if target_url:
         else: st.info("尚無資料。")
 else:
     st.title("💰 歡迎使用雲端理財系統")
-    st.warning("👈 請在左側選單選擇身份以開始")
+    st.warning("👈 請在左側選單選擇身份以開始載入帳本")
