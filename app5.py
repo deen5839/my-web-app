@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime, date
+from datetime import datetime, date, timedelta # ✅ 零件領取處
 import uuid
 from streamlit_gsheets import GSheetsConnection
 
