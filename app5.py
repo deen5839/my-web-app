@@ -153,7 +153,7 @@ if target_url:
             with c1: r_date = st.date_input("日期", date.today())
             with c2:
                 r_amount = st.number_input("金額", min_value=0.0, step=10.0, value=float(edit_item['amount']) if edit_item else 0.0)
-                cats = ['薪水', '獎金', '投資', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '其他']
+                cats = ['薪水', '獎金', '投資', '發票中獎', '洗衣店營收', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '其他']
                 r_cat = st.selectbox("項目分類", cats)
             r_note = st.text_input("詳細備註", value=edit_item['note'] if edit_item else "")
             if st.form_submit_button("🚀 同步至雲端", use_container_width=True):
