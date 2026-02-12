@@ -113,7 +113,7 @@ with st.sidebar:
 
 # 在 target_url 判斷後，先初始化預算
 if 'budget' not in st.session_state:
-    st.session_state.budget = 20000.0
+    st.session_state.budget = 30000.0
 if target_url:
     if not st.session_state.records: app.load_data(target_url)
     df = pd.DataFrame(st.session_state.records)
