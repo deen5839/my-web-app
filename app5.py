@@ -108,8 +108,12 @@ with st.sidebar:
         st.download_button("📥 下載 CSV 備份", data=csv, file_name=f"finance_{date.today()}.csv")
 
 # ==========================================
-# 4. 主介面顯示 (含搜尋過濾邏輯)
+# 4. 主介面顯示 (優化部分)
 # ==========================================
+
+# 在 target_url 判斷後，先初始化預算
+if 'budget' not in st.session_state:
+    st.session_state.budget = 20000.0
 if target_url:
     if not st.session_state.records: app.load_data(target_url)
     df = pd.DataFrame(st.session_state.records)
@@ -156,10 +160,14 @@ if target_url:
             st.subheader("🎯 當月預算執行進度")
             curr_month_str = now.strftime('%Y-%m')
             this_month_ex = df[(df['date_obj'].dt.strftime('%Y-%m') == curr_month_str) & (df['type'] == '支出')]['amount'].sum()
-            budget = st.number_input("設定每月預算上限：", min_value=1000, value=20000, step=1000)
-            progress = min(this_month_ex / budget, 1.0)
+            
+            # 使用 session_state 來固定預算
+            new_budget = st.number_input("設定每月預算上限：", min_value=1000, value=int(st.session_state.budget), step=1000)
+            st.session_state.budget = float(new_budget) # 更新固定值
+            
+            progress = min(this_month_ex / st.session_state.budget, 1.0)
             st.progress(progress)
-            st.write(f"本月已花費: **${this_month_ex:,.0f}** / 預算: **${budget:,.0f}** ({progress*100:.1f}%)")
+            st.write(f"本月已花費: **${this_month_ex:,.0f}** / 預算: **${st.session_state.budget:,.0f}** ({progress*100:.1f}%)")
 
             st.divider()
             st.markdown("## 📊 月份細節查詢")
@@ -195,20 +203,46 @@ if target_url:
             st.plotly_chart(px.line(df, x='date_obj', y='cumulative', markers=True, title="總資產變化歷程"), use_container_width=True)
 
     # --- Tab 1: 記帳 & Tab 3: 明細 (保持穩定) ---
+    # --- Tab 1: 記帳 (優化編輯內容保留 & 新增取消按鈕) ---
     with tab1:
         edit_item = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None) if st.session_state.editing_id else None
-        r_type = st.radio("收支類型", ["支出", "收入"], index=0 if not edit_item or edit_item['type'] == "支出" else 1, horizontal=True)
+        
+        if edit_item:
+            st.warning(f"📝 正在編輯紀錄 ID: {st.session_state.editing_id}")
+        
+        # 判定類型
+        r_type_idx = 0 if not edit_item or edit_item['type'] == "支出" else 1
+        r_type = st.radio("收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True)
+        
         with st.form("entry_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            with c1: r_date = st.date_input("日期", date.today())
+            with c1:
+                # 1. 日期優化：編輯時自動帶入原日期
+                default_date = datetime.strptime(edit_item['date'], '%Y-%m-%d').date() if edit_item else date.today()
+                r_date = st.date_input("日期", default_date)
             with c2:
                 r_amount = st.number_input("金額", min_value=0.0, value=float(edit_item['amount']) if edit_item else 0.0)
+                
+                # 2. 分類優化：編輯時自動帶入原分類
                 cats = ['薪水', '獎金', '投資', '發票', '洗衣店', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '瓦斯', '其他']
-                r_cat = st.selectbox("分類", cats)
+                try:
+                    cat_idx = cats.index(edit_item['category']) if edit_item and edit_item['category'] in cats else 0
+                except ValueError:
+                    cat_idx = 0
+                r_cat = st.selectbox("分類", cats, index=cat_idx)
+            
             r_note = st.text_input("詳細備註", value=edit_item['note'] if edit_item else "")
-            if st.form_submit_button("🚀 同步至雲端", use_container_width=True):
+            
+            # 3. 按鈕優化：同步與取消
+            btn_col1, btn_col2 = st.columns(2)
+            if btn_col1.form_submit_button("🚀 同步至雲端", use_container_width=True):
                 if r_amount > 0:
                     app.add_or_update(r_date, r_type, r_amount, r_cat, r_note, target_url)
+                    st.rerun()
+            
+            if edit_item:
+                if btn_col2.form_submit_button("❌ 取消編輯", use_container_width=True):
+                    st.session_state.editing_id = None
                     st.rerun()
 
     with tab3:
