@@ -161,9 +161,18 @@ if target_url:
             curr_month_str = now.strftime('%Y-%m')
             this_month_ex = df[(df['date_obj'].dt.strftime('%Y-%m') == curr_month_str) & (df['type'] == '支出')]['amount'].sum()
             
-            # 使用 session_state 來固定預算
-            new_budget = st.number_input("設定每月預算上限：", min_value=1000, value=int(st.session_state.budget), step=1000)
-            st.session_state.budget = float(new_budget) # 更新固定值
+            # 💡 修復重點：使用 key 來維持狀態，並用 on_change 確保數值正確存入 session_state
+            if 'budget_input' not in st.session_state:
+                st.session_state.budget_input = st.session_state.budget
+
+            st.number_input(
+                "設定每月預算上限：", 
+                min_value=1000.0, 
+                step=1000.0, 
+                key="budget_input"
+            )
+            # 將輸入值同步到全域預算變數
+            st.session_state.budget = st.session_state.budget_input
             
             progress = min(this_month_ex / st.session_state.budget, 1.0)
             st.progress(progress)
