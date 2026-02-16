@@ -72,7 +72,7 @@ if 'app' not in st.session_state: st.session_state.app = CloudAccounting()
 app = st.session_state.app
 
 # ==========================================
-# 3. 登入與側邊欄 (搜尋功能加回在此)
+# 3. 登入與側邊欄 (修正縮排版)
 # ==========================================
 params = st.query_params
 url_id = params.get("s")
@@ -85,11 +85,19 @@ FRIENDS_DB = {
 }
 
 target_url = None
+
 with st.sidebar:
     st.header("🔐 系統登入")
+    
+    # 狀況 A：已經有網址參數 (自動登入模式)
     if auto_url:
         target_url = auto_url
-        if st.button("🚪 登出系統"): st.query_params.clear(); st.rerun()
+        if st.button("🚪 登出系統"):
+            st.query_params.clear()
+            st.session_state.clear()  # 清除快取
+            st.rerun()
+
+    # 狀況 B：沒有網址參數 (顯示登入選單) <-- 這個 else 必須跟上面的 if 對齊！
     else:
         user_choice = st.selectbox("身份：", ["---"] + list(FRIENDS_DB.keys()))
         if user_choice in FRIENDS_DB:
@@ -98,12 +106,13 @@ with st.sidebar:
                 target_url = f"https://docs.google.com/spreadsheets/d/{FRIENDS_DB[user_choice]['id']}/edit"
     
     st.divider()
-    if st.button("🚪 登出系統"):
-        st.query_params.clear()       # 清除網址參數
-        st.session_state.clear()      # 清除所有快取變數 (包含預算、紀錄)
-        st.rerun()                    # 重新整理
     
-    # --- 搜尋功能回歸 ---
+    # 下面這些功能，不管有沒有登入都要顯示
+    if st.button("🔄 刷新雲端資料"): 
+        app.load_data(target_url)
+        st.rerun()
+    
+    # --- 搜尋功能 ---
     search_query = st.text_input("🔍 搜尋歷史紀錄", placeholder="搜尋分類、金額或備註")
     
     if st.session_state.records:
