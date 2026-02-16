@@ -98,7 +98,10 @@ with st.sidebar:
                 target_url = f"https://docs.google.com/spreadsheets/d/{FRIENDS_DB[user_choice]['id']}/edit"
     
     st.divider()
-    if st.button("🔄 刷新雲端資料"): app.load_data(target_url); st.rerun()
+    if st.button("🚪 登出系統"):
+    st.query_params.clear()       # 清除網址參數
+    st.session_state.clear()      # 清除所有快取變數 (包含預算、紀錄)
+    st.rerun()                    # 重新整理
     
     # --- 搜尋功能回歸 ---
     search_query = st.text_input("🔍 搜尋歷史紀錄", placeholder="搜尋分類、金額或備註")
