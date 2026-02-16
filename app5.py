@@ -72,7 +72,7 @@ if 'app' not in st.session_state: st.session_state.app = CloudAccounting()
 app = st.session_state.app
 
 # ==========================================
-# 3. 登入與側邊欄 (修正縮排版)
+# 3. 登入與側邊欄 (終極修正版)
 # ==========================================
 params = st.query_params
 url_id = params.get("s")
@@ -89,21 +89,26 @@ target_url = None
 with st.sidebar:
     st.header("🔐 系統登入")
     
-    # 狀況 A：已經有網址參數 (自動登入模式)
+    # 狀況 A：已登入 (網址有參數) -> 顯示登出按鈕
     if auto_url:
         target_url = auto_url
         if st.button("🚪 登出系統"):
-            st.query_params.clear()
+            st.query_params.clear()   # 清除網址參數
             st.session_state.clear()  # 清除快取
-            st.rerun()
+            st.rerun()                # 重新整理
 
-    # 狀況 B：沒有網址參數 (顯示登入選單) <-- 這個 else 必須跟上面的 if 對齊！
+    # 狀況 B：未登入 -> 顯示輸入框
     else:
         user_choice = st.selectbox("身份：", ["---"] + list(FRIENDS_DB.keys()))
+        
         if user_choice in FRIENDS_DB:
             user_pin = st.text_input("通行碼", type="password")
+            
+            # 🔑 關鍵修正：密碼正確後，強制寫入網址參數並重整
             if user_pin == FRIENDS_DB[user_choice]["pin"]:
-                target_url = f"https://docs.google.com/spreadsheets/d/{FRIENDS_DB[user_choice]['id']}/edit"
+                # 把 ID 寫入網址，讓程式以為你是用連結登入的
+                st.query_params["s"] = FRIENDS_DB[user_choice]['id']
+                st.rerun()  # 馬上重新整理，登出按鈕就會出現了！
     
     st.divider()
     
