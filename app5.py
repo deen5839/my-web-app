@@ -81,7 +81,7 @@ auto_url = f"https://docs.google.com/spreadsheets/d/{url_id}/edit" if url_id els
 FRIENDS_DB = {
     "管理員 (本人)": {"id": "1dKLbifoTDOgeUPWasPmcbgl4wLu0_V6hHnCpropVs4k", "pin": "0526"},
     "哥哥": {"id": "1-ADQndfjfNASx8hKFdSlAOU7w7StaZSmfjJKQJqH6Fw", "pin": "0000"},
-    "同學": {"id": "1vK_O9_f68fX88_p_pS_B6X5S...", "pin": "1111"},
+    "同學": {"id": "1BmnlohJ59OtuqQ5tCE8xZshIUmRan_4V4TPSRaTJqjg", "pin": "1111"},
 }
 
 target_url = None
