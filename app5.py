@@ -223,16 +223,25 @@ if target_url:
                 st.plotly_chart(px.bar(month_group, x='month_key', y='amount', color='type', barmode='group', 
                                        title="歷史收支趨勢對比", color_discrete_map={'收入':'#2ca02c', '支出':'#d62728'}), use_container_width=True)
             
-            st.subheader("📈 每月資產成長曲線 (累計結餘)")
+            st.subheader(f"📈 {selected_month} 每日資產成長曲線")
+            
+            # 1. 先算出全歷史「每一天」的淨值加總 (把同一天的好幾筆帳合併)
             df['net_val'] = df.apply(lambda x: x['amount'] if x['type'] == '收入' else -x['amount'], axis=1)
+            daily_df = df.groupby('date_obj')['net_val'].sum().reset_index()
+            daily_df = daily_df.sort_values('date_obj')
             
-            # 💡 這裡就是 Python 版的「樞紐分析」：把每天的淨值「按月份」分類加總
-            monthly_net = df.groupby('month_key')['net_val'].sum().reset_index()
-            monthly_net = monthly_net.sort_values('month_key') # 確保時間順序由舊到新
-            monthly_net['cumulative'] = monthly_net['net_val'].cumsum() # 算出每月的累計結餘
+            # 2. 算出「歷史以來的總累計資產」(這樣起點才不會是 0)
+            daily_df['cumulative'] = daily_df['net_val'].cumsum()
             
-            # 畫圖時，x 軸換成 'month_key'，y 軸換成新的 'cumulative'
-            st.plotly_chart(px.line(monthly_net, x='month_key', y='cumulative', markers=True, title="每月總資產變化趨勢"), use_container_width=True)
+            # 3. 標記月份，並只過濾出你「下拉選單選到的那個月 (selected_month)」
+            daily_df['month_key'] = daily_df['date_obj'].dt.strftime('%Y-%m')
+            m_daily_df = daily_df[daily_df['month_key'] == selected_month]
+            
+            # 4. 畫圖！
+            if not m_daily_df.empty:
+                st.plotly_chart(px.line(m_daily_df, x='date_obj', y='cumulative', markers=True, title=f"{selected_month} 總資產變化"), use_container_width=True)
+            else:
+                st.info("該月尚無資料可繪製曲線")
 
     # --- Tab 1: 記帳 & Tab 3: 明細 (保持穩定) ---
     # --- Tab 1: 記帳 (優化編輯內容保留 & 新增取消按鈕) ---
