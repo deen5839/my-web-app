@@ -14,7 +14,7 @@ with st.sidebar:
     stock_name = st.text_input("股票名稱", value="泰山 1218")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
     stock_price = st.number_input("目前股價 (元)", value=19.2, min_value=0.0, step=0.1)
-    annual_dividend = st.number_input("預估每年每股配息 (元)", value=0.8, min_value=0.0, step=0.1)
+    annual_dividend = st.number_input("預估每年每股配息 (元)", value=1.32, min_value=0.0, step=0.1)
     years = st.slider("試算年限 (年)", min_value=1, max_value=20, value=10)
 
 # --- 3. 核心計算邏輯 ---
