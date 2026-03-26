@@ -3,3 +3,4 @@ pandas<3.0
 plotly
 openpyxl
 git+https://github.com/streamlit/gsheets-connection.git
+yfinance
