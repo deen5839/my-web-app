@@ -265,7 +265,7 @@ if target_url:
                 r_amount = st.number_input("金額", min_value=0.0, value=float(edit_item['amount']) if edit_item else 0.0)
                 
                 # 2. 分類優化：編輯時自動帶入原分類
-                cats = ['薪水', '獎金', '投資', '發票', '房租', '洗衣店', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '瓦斯', '其他']
+                cats = ['薪水', '獎金', '投資', '發票', '房租', '洗衣店', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '瓦斯', '其他', '電費', '水費', '職業工會']
                 try:
                     cat_idx = cats.index(edit_item['category']) if edit_item and edit_item['category'] in cats else 0
                 except ValueError:
