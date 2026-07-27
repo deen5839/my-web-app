@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
+from datetime import datetime
 
 # --- 1. 網頁初始設定 ---
 st.set_page_config(page_title="存股複利雪球 2.0", page_icon="🔥", layout="wide")
@@ -15,12 +16,12 @@ with st.sidebar:
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
     
-    start_year = st.number_input("起始年份 (買入/開始年份)", value=2026, min_value=2000, max_value=2050, step=1)
-    years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=10)
+    start_year = st.number_input("歷史回測起始年份", value=2015, min_value=2000, max_value=2030, step=1)
+    years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=12)
     
     st.divider()
-    st.subheader("🛠️ 首年股息手動校正")
-    manual_start_div = st.number_input(f"{start_year}年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
+    st.subheader("🛠️ 最新年度 (2026) 股息手動校正")
+    manual_2026_div = st.number_input("2026年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
 
@@ -35,28 +36,30 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
         else:
             # 整理 Yahoo Finance 資料
             df_div = pd.DataFrame(div_data).reset_index()
-            df_div['Date'] = pd.to_datetime(df_div['Date'], utc=True)
+            # 轉為台灣時間，避免跨年除息日歸類錯誤
+            df_div['Date'] = pd.to_datetime(df_div['Date'], utc=True).dt.tz_convert('Asia/Taipei')
             df_div['Year'] = df_div['Date'].dt.year
             
-            # 按年份加總
+            # 按年份加總歷史配息
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-            # 建立年份序列 (從 start_year 開始算 N 年)
+            # 建立完整的年份序列 (從 start_year 到 start_year + years_to_calc - 1)
             end_year = start_year + years_to_calc - 1
             full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
             
-            # 1. 歷史資料合併：沒抓到資料的年份一律保持真實的 0 元 (fillna(0))
+            # 1. 歷史資料合併 (查無資料者補 0)
             yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left').fillna(0)
             
-            # 2. 首年校正：只強制把 start_year (2026) 設為你填寫的 1.32 元
-            yearly_div.loc[yearly_div['Year'] == start_year, 'Dividends'] = manual_start_div
+            current_year = datetime.now().year # 2026
             
-            # 💡 核心關鍵修復：只有「未來年份 ( > start_year )」才用 1.32 元往後滾動！
-            # 這樣就不會影響到歷史上真實為 0 的年份！
-            future_mask = yearly_div['Year'] > start_year
-            yearly_div.loc[future_mask, 'Dividends'] = manual_start_div
+            # 2. 強制把 2026 年（當前年份）設為你輸入的正確金額 (1.32元)
+            yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'] = manual_2026_div
             
-            # 計算金額與累計
+            # 3. 只有「未來的年份 (> 2026)」才預估延續用 1.32 元推算
+            future_mask = yearly_div['Year'] > current_year
+            yearly_div.loc[future_mask, 'Dividends'] = manual_2026_div
+            
+            # 計算每年金額與累計金額
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
             yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
             
