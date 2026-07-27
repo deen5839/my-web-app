@@ -15,15 +15,11 @@ with st.sidebar:
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
     
-    # 💡 新增 1：讓你可以自由選擇起始年份
     start_year = st.number_input("起始年份 (買入/開始年份)", value=2026, min_value=2000, max_value=2050, step=1)
-    
-    # 💡 新增 2：拉桿改成設定「想要計算幾年」
     years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=10)
     
     st.divider()
-    st.subheader("🛠️ 首年股息校正")
-    # 提供手動輸入起始年份（如 2026）的最新股息
+    st.subheader("🛠️ 首年股息手動校正")
     manual_start_div = st.number_input(f"{start_year}年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
@@ -42,30 +38,25 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
             df_div['Date'] = pd.to_datetime(df_div['Date'], utc=True)
             df_div['Year'] = df_div['Date'].dt.year
             
-            # 按年份加總（處理一年多次配息的情況）
+            # 按年份加總
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-           # 建立標準年份序列
+            # 建立年份序列 (從 start_year 開始算 N 年)
             end_year = start_year + years_to_calc - 1
             full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
             
-            # 合併歷史 API 資料
-            yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left')
+            # 1. 歷史資料合併：沒抓到資料的年份一律保持真實的 0 元 (fillna(0))
+            yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left').fillna(0)
             
-            # 💡 核心修正邏輯：分開處理歷史與未來
-            
-            # 1. 2026 年以前（不含 2026）：歷史沒抓到資料就是真的沒發（填 0，2024 年就會正確呈現 0 元）
-            past_mask = yearly_div['Year'] < start_year
-            yearly_div.loc[past_mask, 'Dividends'] = yearly_div.loc[past_mask, 'Dividends'].fillna(0)
-            
-            # 2. 起始年份（2026 年）：強制套用你校正的正確數字 (1.32 元)
+            # 2. 首年校正：只強制把 start_year (2026) 設為你填寫的 1.32 元
             yearly_div.loc[yearly_div['Year'] == start_year, 'Dividends'] = manual_start_div
             
-            # 3. 2026 年以後（未來的年份）：自動延續使用 1.32 元來向未來推算
+            # 💡 核心關鍵修復：只有「未來年份 ( > start_year )」才用 1.32 元往後滾動！
+            # 這樣就不會影響到歷史上真實為 0 的年份！
             future_mask = yearly_div['Year'] > start_year
-            yearly_div.loc[future_mask, 'Dividends'] = yearly_div.loc[future_mask, 'Dividends'].fillna(manual_start_div)
+            yearly_div.loc[future_mask, 'Dividends'] = manual_start_div
             
-            # 計算每年領取總額與累計金額
+            # 計算金額與累計
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
             yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
             
