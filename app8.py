@@ -92,14 +92,14 @@ with st.spinner(f"📡 正在為您連線 API 並處理 {ticker} 數據..."):
         yearly_div.loc[future_mask, 'Dividends'] = latest_div
 
         # 計算金額與累計
-        yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
-        yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
+        yearly_div['當年領取總額'] = yearly_div['Dividends'] * total_shares
+        yearly_div['累計已領股息'] = yearly_div['當年領取總額'].cumsum()
         
         # --- 4. 主畫面顯示 ---
         st.subheader(f"🎯 {ticker} - 涵蓋 {start_year} 至 {end_year} 年股息累計")
         
         final_cumulative = yearly_div['累計已領股息'].iloc[-1]
-        avg_yearly = yearly_div['当年領取總額'].mean()
+        avg_yearly = yearly_div['當年領取總額'].mean()
         
         c1, c2, c3 = st.columns(3)
         c1.metric("持有總股數", f"{total_shares:,} 股")
@@ -119,7 +119,7 @@ with st.spinner(f"📡 正在為您連線 API 並處理 {ticker} 數據..."):
             
         with g2:
             fig_bar = px.bar(
-                yearly_div, x="Year", y="当年領取總額",
+                yearly_div, x="Year", y="當年領取總額",
                 title="💵 每年實際配發總股息",
                 color_discrete_sequence=['#1E88E5']
             )
@@ -128,10 +128,10 @@ with st.spinner(f"📡 正在為您連線 API 並處理 {ticker} 數據..."):
         with st.expander("📝 查看每年真實發放與累計明細"):
             display_df = yearly_div.copy()
             display_df['每股配發(元)'] = display_df['Dividends'].round(2)
-            display_df['当年領取總額'] = display_df['当年領取總額'].astype(int)
+            display_df['當年領取總額'] = display_df['當年領取總額'].astype(int)
             display_df['累計已領股息'] = display_df['累計已領股息'].astype(int)
             display_df.index = range(1, len(display_df) + 1)
-            st.dataframe(display_df[['Year', '每股配發(元)', '当年領取總額', '累計已領股息']], use_container_width=True)
+            st.dataframe(display_df[['Year', '每股配發(元)', '當年領取總額', '累計已領股息']], use_container_width=True)
 
     except Exception as e:
         st.error(f"發生錯誤：{e}")
