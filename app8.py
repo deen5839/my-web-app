@@ -31,8 +31,8 @@ else:
 # --- 2. 側邊欄設定 ---
 with st.sidebar:
     st.header("⚙️ 參數設定")
-    ticker = st.text_input("股票代號 (台股請加 .TW)", value="5706.TW").strip().upper()
-    stock_sheets = st.number_input("持有張數 (1張=1000股)", value=None, min_value=1, step=1)
+    ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW").strip().upper()
+    stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
     
     start_year = st.number_input("歷史回測起始年份", value=2026, min_value=2000, max_value=2030, step=1)
     years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=1)
@@ -40,7 +40,7 @@ with st.sidebar:
     st.divider()
     st.subheader("🛠️ 2026 特例手動強制覆蓋")
     force_manual_2026 = st.checkbox("強制指定 2026 年配息金額", value=False)
-    manual_2026_div = st.number_input("2026年每股配息 (元)", value=4.54, step=0.01, format="%.2f")
+    manual_2026_div = st.number_input("2026年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
 current_year = 2026
