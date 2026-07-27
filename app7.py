@@ -16,6 +16,8 @@ with st.sidebar:
     # 台股在 Yahoo Finance 的代號後面要加 .TW
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
+    # 💡 新增：讓你自己選擇哪一年買進（預設 2026）
+    start_year = st.number_input("買入年份", value=2026, min_value=1990, max_value=datetime.now().year, step=1)
     lookback_years = st.slider("回測過去幾年？", min_value=1, max_value=20, value=10)
 
 total_shares = stock_sheets * 1000
@@ -37,9 +39,9 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
             df_div['Date'] = pd.to_datetime(df_div['Date'], utc=True)
             df_div['Year'] = df_div['Date'].dt.year
             
-            # 過濾出你要的「過去 N 年」
-            current_year = datetime.now().year
-            start_year = current_year - lookback_years
+            
+            # 💡 直接拿 start_year 來過濾即可：
+            
             df_filtered = df_div[df_div['Year'] >= start_year].copy()
             
             # 💡 這裡用到了你最熟的「樞紐分析」邏輯：把同一個年份的股息加總
