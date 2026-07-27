@@ -67,13 +67,21 @@ with st.spinner(f"📡 正在為您融合 {ticker} 的歷史真實數據與未�
         if enable_manual_2026:
             yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'] = manual_2026_div
         else:
-            # 若沒勾選手動，且黃金庫/yfinance 均有值就保留，若無則預設帶入 manual_2026_div
-            real_2026 = yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'].values
-            if len(real_2026) == 0 or real_2026[0] == 0:
-                yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'] = manual_2026_div
+            # 安全檢查：若 2026 年為 0 或沒有資料，自動帶入手動校正值
+            mask_2026 = yearly_div['Year'] == current_year
+            if mask_2026.any():
+                val_2026 = yearly_div.loc[mask_2026, 'Dividends'].values[0]
+                if val_2026 == 0:
+                    yearly_div.loc[mask_2026, 'Dividends'] = manual_2026_div
 
-        # 步驟 D: 未來年份 (> 2026) 自動延伸推算
-        latest_div = yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'].values[0]
+        # 步驟 D: 未來年份 (> 2026) 安全延伸推算
+        # 💡 安全防禦：先試著拿 2026 年的值，拿不到就拿 manual_2026_div，絕不讓陣列越界崩潰
+        val_2026_list = yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'].values
+        if len(val_2026_list) > 0 and val_2026_list[0] > 0:
+            latest_div = val_2026_list[0]
+        else:
+            latest_div = manual_2026_div
+
         future_mask = yearly_div['Year'] > current_year
         yearly_div.loc[future_mask, 'Dividends'] = latest_div
 
