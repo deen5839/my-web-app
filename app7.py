@@ -16,7 +16,7 @@ with st.sidebar:
     # 台股在 Yahoo Finance 的代號後面要加 .TW
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
-    lookback_years = st.slider("回測過去幾年？", min_value=1, max_value=20, value=10)
+    lookback_years = st.slider("回測過去幾年？", min_value=0, max_value=19, value=10)
 
 total_shares = stock_sheets * 1000
 
