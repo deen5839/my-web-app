@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import yfinance as yf
-from datetime import datetime
 
 # --- 1. 網頁初始設定 ---
 st.set_page_config(page_title="存股複利雪球 2.0", page_icon="🔥", layout="wide")
@@ -16,18 +15,21 @@ with st.sidebar:
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
     
-    # 最長可選 20 年
-    lookback_years = st.slider("想要累計計算過去幾年？(最長20年)", min_value=1, max_value=20, value=10)
+    # 💡 新增 1：讓你可以自由選擇起始年份
+    start_year = st.number_input("起始年份 (買入/開始年份)", value=2026, min_value=2000, max_value=2050, step=1)
+    
+    # 💡 新增 2：拉桿改成設定「想要計算幾年」
+    years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=10)
     
     st.divider()
-    st.subheader("🛠️ 最新年度股息校正")
-    # 提供手動輸入 2026 年最新股息，解決 Yahoo Finance 資料庫延遲/錯誤問題
-    manual_2026_div = st.number_input("2026年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
+    st.subheader("🛠️ 首年股息校正")
+    # 提供手動輸入起始年份（如 2026）的最新股息
+    manual_start_div = st.number_input(f"{start_year}年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
 
 # --- 3. 核心 API 串接與計算邏輯 ---
-with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 過去 {lookback_years} 年的歷史配息..."):
+with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史配息..."):
     try:
         stock = yf.Ticker(ticker)
         div_data = stock.dividends
@@ -43,16 +45,15 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 過去 {loo
             # 按年份加總（處理一年多次配息的情況）
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-            # 設定計算範圍（以 2026 為基準往回推 N 年）
-            current_year = 2026
-            start_year = current_year - lookback_years + 1
+            # 💡 計算結束年份（例如 2026 開始算 10 年，範圍就是 2026 ~ 2035）
+            end_year = start_year + years_to_calc - 1
             
-            # 建立標準年份序列（確保從 start_year 到 2026 年每年都有資料）
-            full_years = pd.DataFrame({'Year': list(range(start_year, current_year + 1))})
+            # 建立標準年份序列
+            full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
             yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left').fillna(0)
             
-            # 💡 核心校正：強制把 2026 年的股息更正為你輸入的正確數字 (1.32 元)
-            yearly_div.loc[yearly_div['Year'] == 2026, 'Dividends'] = manual_2026_div
+            # 💡 核心校正：把起始年份的股息更正為你輸入的正確數字 (例如 1.32 元)
+            yearly_div.loc[yearly_div['Year'] == start_year, 'Dividends'] = manual_start_div
             
             # 計算每年領取總額與累計金額
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
@@ -60,7 +61,7 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 過去 {loo
             yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
             
             # --- 4. 主畫面顯示 (UI 版面) ---
-            st.subheader(f"🎯 {ticker} - 涵蓋 {start_year} 至 {current_year} 年（共 {len(yearly_div)} 年）真實股息累計")
+            st.subheader(f"🎯 {ticker} - 涵蓋 {start_year} 至 {end_year} 年（共 {len(yearly_div)} 年）股息累計")
             
             final_cumulative = yearly_div['累計已領股息'].iloc[-1]
             avg_yearly = yearly_div['当年領取總額'].mean()
