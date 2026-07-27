@@ -21,6 +21,8 @@ with st.sidebar:
     
     st.divider()
     st.subheader("🛠️ 最新年度 (2026) 股息手動校正")
+    # 💡 增加一個勾選框：預設不勾選（自動抓取該股票配息）；需要手動修改時再勾選
+    enable_manual = st.checkbox("手動指定 2026 年配息金額", value=False)
     manual_2026_div = st.number_input("2026年每股配息 (元)", value=1.32, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
@@ -32,34 +34,45 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
         div_data = stock.dividends
         
         if div_data.empty:
-            st.warning(f"⚠️ 找不到 {ticker} 的配息資料，請檢查代號是否正確。")
+            st.warning(f"⚠️ 找不到 {ticker} 的配息資料，請檢查代號是否正確 (台股記得加 .TW)。")
         else:
             # 整理 Yahoo Finance 資料
             df_div = pd.DataFrame(div_data).reset_index()
-            # 轉為台灣時間，避免跨年除息日歸類錯誤
             df_div['Date'] = pd.to_datetime(df_div['Date'], utc=True).dt.tz_convert('Asia/Taipei')
             df_div['Year'] = df_div['Date'].dt.year
             
-            # 按年份加總歷史配息
+            # 按年份加總歷史配息 (自動抓取該股票各年份真實股息)
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-            # 建立完整的年份序列 (從 start_year 到 start_year + years_to_calc - 1)
+            # 建立完整的年份序列
             end_year = start_year + years_to_calc - 1
             full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
             
-            # 1. 歷史資料合併 (查無資料者補 0)
+            # 合併歷史資料
             yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left').fillna(0)
             
             current_year = datetime.now().year # 2026
             
-            # 2. 強制把 2026 年（當前年份）設為你輸入的正確金額 (1.32元)
-            yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'] = manual_2026_div
+            # 💡 核心修正邏輯：
+            # 1. 如果勾選了手動校正，才把 2026 年蓋成手動金額；沒勾選就直接用 yfinance 抓到的台積電/其他股票真實數字！
+            if enable_manual:
+                yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'] = manual_2026_div
+                latest_div = manual_2026_div
+            else:
+                # 如果 yfinance 有抓到 2026 數字就用抓到的，否則拿最近一年的真實配息
+                real_2026 = yearly_div.loc[yearly_div['Year'] == current_year, 'Dividends'].values
+                if len(real_2026) > 0 and real_2026[0] > 0:
+                    latest_div = real_2026[0]
+                else:
+                    # 抓最近一個非 0 的真實配息作為未來推算基準
+                    valid_divs = yearly_div[yearly_div['Dividends'] > 0]['Dividends']
+                    latest_div = valid_divs.iloc[-1] if not valid_divs.empty else 0
             
-            # 3. 只有「未來的年份 (> 2026)」才預估延續用 1.32 元推算
+            # 2. 未來年份 (> 2026) 自動延續『該股票最新/校正後的股息』往後推算
             future_mask = yearly_div['Year'] > current_year
-            yearly_div.loc[future_mask, 'Dividends'] = manual_2026_div
+            yearly_div.loc[future_mask, 'Dividends'] = latest_div
             
-            # 計算每年金額與累計金額
+            # 計算金額與累計
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
             yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
             
