@@ -32,10 +32,10 @@ else:
 with st.sidebar:
     st.header("⚙️ 參數設定")
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="5706.TW").strip().upper()
-    stock_sheets = st.number_input("持有張數 (1張=1000股)", value=10, min_value=1, step=1)
+    stock_sheets = st.number_input("持有張數 (1張=1000股)", value=None, min_value=1, step=1)
     
-    start_year = st.number_input("歷史回測起始年份", value=2021, min_value=2000, max_value=2030, step=1)
-    years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=6)
+    start_year = st.number_input("歷史回測起始年份", value=2026, min_value=2000, max_value=2030, step=1)
+    years_to_calc = st.slider("想要計算幾年？(最長20年)", min_value=1, max_value=20, value=1)
     
     st.divider()
     st.subheader("🛠️ 2026 特例手動強制覆蓋")
