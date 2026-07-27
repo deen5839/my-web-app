@@ -16,7 +16,7 @@ with st.sidebar:
     # 台股在 Yahoo Finance 的代號後面要加 .TW
     ticker = st.text_input("股票代號 (台股請加 .TW)", value="1218.TW")
     stock_sheets = st.number_input("持有張數 (1張=1000股)", value=226, min_value=1, step=1)
-    lookback_years = st.slider("回測過去幾年？", min_value=0, max_value=19, value=10)
+    lookback_years = st.slider("回測過去幾年？", min_value=1, max_value=20, value=10)
 
 total_shares = stock_sheets * 1000
 
@@ -91,6 +91,9 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
                     display_df['每股配發(元)'] = display_df['Dividends'].round(2)
                     display_df['當年領取總額'] = display_df['當年領取總額'].astype(int)
                     display_df['累計已領股息'] = display_df['累計已領股息'].astype(int)
+                    
+                    # 💡 核心修改：將 Index 改成從 1 開始到資料長度 N
+                    display_df.index = range(1, len(display_df) + 1)
                     st.dataframe(display_df[['Year', '每股配發(元)', '當年領取總額', '累計已領股息']], use_container_width=True)
 
     except Exception as e:
