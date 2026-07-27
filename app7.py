@@ -45,18 +45,25 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
             # 按年份加總（處理一年多次配息的情況）
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-            # 建立標準年份序列
+           # 建立標準年份序列
             end_year = start_year + years_to_calc - 1
             full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
             
             # 合併歷史 API 資料
             yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left')
             
-            # 💡 修正 1：如果第一年 (start_year) 在 API 沒有抓到資料或數字不對，強制使用你輸入的 manual_start_div
+            # 💡 核心修正邏輯：分開處理歷史與未來
+            
+            # 1. 2026 年以前（不含 2026）：歷史沒抓到資料就是真的沒發（填 0，2024 年就會正確呈現 0 元）
+            past_mask = yearly_div['Year'] < start_year
+            yearly_div.loc[past_mask, 'Dividends'] = yearly_div.loc[past_mask, 'Dividends'].fillna(0)
+            
+            # 2. 起始年份（2026 年）：強制套用你校正的正確數字 (1.32 元)
             yearly_div.loc[yearly_div['Year'] == start_year, 'Dividends'] = manual_start_div
             
-            # 💡 修正 2：如果未來幾年 API 沒有資料 (NaN)，自動用首年的股息 (或歷史平均) 來填補，而不是直接填 0
-            yearly_div['Dividends'] = yearly_div['Dividends'].fillna(manual_start_div)
+            # 3. 2026 年以後（未來的年份）：自動延續使用 1.32 元來向未來推算
+            future_mask = yearly_div['Year'] > start_year
+            yearly_div.loc[future_mask, 'Dividends'] = yearly_div.loc[future_mask, 'Dividends'].fillna(manual_start_div)
             
             # 計算每年領取總額與累計金額
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
