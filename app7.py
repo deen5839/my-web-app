@@ -45,19 +45,21 @@ with st.spinner(f"📡 正在從全球金融資料庫撈取 {ticker} 的歷史�
             # 按年份加總（處理一年多次配息的情況）
             yearly_div_raw = df_div.groupby('Year')['Dividends'].sum().reset_index()
             
-            # 💡 計算結束年份（例如 2026 開始算 10 年，範圍就是 2026 ~ 2035）
-            end_year = start_year + years_to_calc - 1
-            
             # 建立標準年份序列
+            end_year = start_year + years_to_calc - 1
             full_years = pd.DataFrame({'Year': list(range(start_year, end_year + 1))})
-            yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left').fillna(0)
             
-            # 💡 核心校正：把起始年份的股息更正為你輸入的正確數字 (例如 1.32 元)
+            # 合併歷史 API 資料
+            yearly_div = pd.merge(full_years, yearly_div_raw, on='Year', how='left')
+            
+            # 💡 修正 1：如果第一年 (start_year) 在 API 沒有抓到資料或數字不對，強制使用你輸入的 manual_start_div
             yearly_div.loc[yearly_div['Year'] == start_year, 'Dividends'] = manual_start_div
+            
+            # 💡 修正 2：如果未來幾年 API 沒有資料 (NaN)，自動用首年的股息 (或歷史平均) 來填補，而不是直接填 0
+            yearly_div['Dividends'] = yearly_div['Dividends'].fillna(manual_start_div)
             
             # 計算每年領取總額與累計金額
             yearly_div['当年領取總額'] = yearly_div['Dividends'] * total_shares
-            # 逐年累加現金股利
             yearly_div['累計已領股息'] = yearly_div['当年領取總額'].cumsum()
             
             # --- 4. 主畫面顯示 (UI 版面) ---
