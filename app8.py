@@ -40,7 +40,7 @@ with st.sidebar:
     st.divider()
     st.subheader("🛠️ 2026 特例手動強制覆蓋")
     force_manual_2026 = st.checkbox("強制指定 2026 年配息金額", value=False)
-    manual_2026_div = st.number_input("2026年每股配息 (元)", value=4.50, step=0.01, format="%.2f")
+    manual_2026_div = st.number_input("2026年每股配息 (元)", value=4.54, step=0.01, format="%.2f")
 
 total_shares = stock_sheets * 1000
 current_year = 2026
