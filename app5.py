@@ -219,9 +219,14 @@ if target_url:
                                            values='amount', names='category', title=f"{selected_month} 支出分布", hole=0.4), use_container_width=True)
                 else: st.info("該月尚無支出紀錄")
             with g2:
-                month_group = df.groupby(['month_key', 'type'])['amount'].sum().reset_index()
-                st.plotly_chart(px.bar(month_group, x='month_key', y='amount', color='type', barmode='group', 
-                                       title="歷史收支趨勢對比", color_discrete_map={'收入':'#2ca02c', '支出':'#d62728'}), use_container_width=True)
+                # 💡 修改重點：只過濾出當年前 (2026) 的資料進行月份對比
+                curr_year_df = df[df['date_obj'].dt.year == now.year]
+                if not curr_year_df.empty:
+                    month_group = curr_year_df.groupby(['month_key', 'type'])['amount'].sum().reset_index()
+                    st.plotly_chart(px.bar(month_group, x='month_key', y='amount', color='type', barmode='group', 
+                                           title=f"{now.year} 當年收支趨勢對比", color_discrete_map={'收入':'#2ca02c', '支出':'#d62728'}), use_container_width=True)
+                else:
+                    st.info(f"{now.year} 年尚無收支紀錄")
             
             st.subheader(f"📈 {selected_month} 每日資產成長曲線")
             
