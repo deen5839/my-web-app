@@ -185,6 +185,7 @@ if target_url:
             st.number_input(
                 "設定每月預算上限：", 
                 min_value=1000.0, 
+                value=90000.0,  # <-- 加上這行設定初始值為 90000 元
                 step=1000.0, 
                 key="budget_input"
             )
