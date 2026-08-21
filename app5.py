@@ -187,10 +187,10 @@ if target_url:
                 min_value=1000.0, 
                 value=90000.0,  # <-- 加上這行設定初始值為 90000 元
                 step=1000.0, 
-                key="budget_input"
+                key="budget_input_v2"
             )
             # 將輸入值同步到全域預算變數
-            st.session_state.budget = st.session_state.budget_input
+            st.session_state.budget = st.session_state.budget_input_v2
             
             progress = min(this_month_ex / st.session_state.budget, 1.0)
             st.progress(progress)
