@@ -173,8 +173,12 @@ with st.sidebar:
     
     # 下面這些功能，不管有沒有登入都要顯示
     if st.button("🔄 刷新雲端資料"): 
-        app.load_data(target_url)
-        st.rerun()
+        if target_url:
+            app.load_data(target_url)
+            st.toast("✅ 快取已更新！")
+            st.rerun()
+        else:
+            st.warning("⚠️ 請先選擇身份並輸入通行碼登入！")
     
     # --- 搜尋功能 ---
     search_query = st.text_input("🔍 搜尋歷史紀錄", placeholder="搜尋分類、金額或備註")
