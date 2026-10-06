@@ -23,6 +23,7 @@ st.markdown("""
 # 2. 核心邏輯控制器
 # ==========================================
 class CloudAccounting:
+
     def __init__(self):
         try:
             self.conn = st.connection("gsheets", type=GSheetsConnection)
@@ -30,50 +31,74 @@ class CloudAccounting:
         except Exception as e:
             st.error(f"⚠️ 連線失敗：{e}")
             self.is_connected = False
-        if 'records' not in st.session_state: st.session_state.records = []
-        if 'editing_id' not in st.session_state: st.session_state.editing_id = None
+        if "records" not in st.session_state:
+            st.session_state.records = []
+        if "editing_id" not in st.session_state:
+            st.session_state.editing_id = None
 
     def load_data(self, sheet_url=None):
-        if not self.is_connected or not sheet_url: return []
+        if not self.is_connected or not sheet_url:
+            return []
         try:
-            df = self.conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=0)
-            if df is not None:
-                # 確保必要欄位都存在
-                required_cols = ['id', 'date', 'type', 'amount', 'category', 'note']
-                for col in required_cols:
+            # 💡 關鍵修正：強制清除快取 ttl=0，確保切換帳號時一定會抓取對應試算表
+            df = self.conn.read(
+                spreadsheet=sheet_url, worksheet="Sheet1", ttl=0
+            )
+            if df is not None and not df.empty:
+                # 確保必要欄位存在
+                for col in ["id", "date", "type", "amount", "category", "note"]:
                     if col not in df.columns:
                         df[col] = ""
-                
-                # 如果有資料，進行轉型；如果沒資料，維持空 list
-                if not df.empty:
-                    df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
-                    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                    st.session_state.records = df.to_dict('records')
-                else:
-                    st.session_state.records = []
+
+                # 處理缺失值，防止轉型失敗
+                df["amount"] = (
+                    pd.to_numeric(df["amount"], errors="coerce")
+                    .fillna(0)
+                    .astype(float)
+                )
+                df["date"] = df["date"].fillna(
+                    datetime.now().strftime("%Y-%m-%d")
+                )
+                df["type"] = df["type"].fillna("支出")
+                df["category"] = df["category"].fillna("其他")
+                df["note"] = df["note"].fillna("")
+
+                st.session_state.records = df.to_dict("records")
+            else:
+                st.session_state.records = []
             return st.session_state.records
         except Exception as e:
-            st.warning(f"💡 讀取狀態：{e}")
+            st.error(f"⚠️ 讀取資料失敗：{e}")
             st.session_state.records = []
             return []
 
     def save_data(self, sheet_url=None):
-        # 🔑 自動修復：若傳入為空，嘗試從網址參數還原 sheet_url
         if not sheet_url:
             url_id = st.query_params.get("s")
             if url_id:
-                sheet_url = f"https://docs.google.com/spreadsheets/d/{url_id}/edit"
+                sheet_url = (
+                    f"https://docs.google.com/spreadsheets/d/{url_id}/edit"
+                )
 
         if not self.is_connected or not sheet_url:
-            st.error("❌ 寫入失敗：無法取得試算表連結，請重新登入！")
+            st.error("❌ 寫入失敗：無法取得試算表網址！")
             return False
         try:
-            df = pd.DataFrame(st.session_state.records) if st.session_state.records else pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
-            self.conn.update(spreadsheet=sheet_url, worksheet="Sheet1", data=df)
+            df = (
+                pd.DataFrame(st.session_state.records)
+                if st.session_state.records
+                else pd.DataFrame(
+                    columns=["id", "date", "type", "amount", "category", "note"]
+                )
+            )
+            # 強制將 Dataframe 轉為字串與數值乾淨格式
+            self.conn.update(
+                spreadsheet=sheet_url, worksheet="Sheet1", data=df
+            )
             st.toast("✅ 雲端同步成功！")
             return True
         except Exception as e:
-            st.error(f"❌ 寫入失敗（詳細原因）：{e}")
+            st.error(f"❌ 寫入失敗：{e}")
             return False
 
     def add_or_update(self, r_date, r_type, amount, category, note, sheet_url=None):
