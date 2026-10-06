@@ -37,15 +37,20 @@ class CloudAccounting:
         if not self.is_connected or not sheet_url: return []
         try:
             df = self.conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=0)
-            if df is not None and not df.empty:
-                # 補足必要欄位
-                for col in ['id', 'date', 'type', 'amount', 'category', 'note']:
-                    if col not in df.columns: df[col] = ""
-                df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
-                df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                st.session_state.records = df.to_dict('records')
-            else:
-                st.session_state.records = []
+            if df is not None:
+                # 確保必要欄位都存在
+                required_cols = ['id', 'date', 'type', 'amount', 'category', 'note']
+                for col in required_cols:
+                    if col not in df.columns:
+                        df[col] = ""
+                
+                # 如果有資料，進行轉型；如果沒資料，維持空 list
+                if not df.empty:
+                    df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
+                    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+                    st.session_state.records = df.to_dict('records')
+                else:
+                    st.session_state.records = []
             return st.session_state.records
         except Exception as e:
             st.warning(f"💡 讀取狀態：{e}")
