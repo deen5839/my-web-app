@@ -82,6 +82,7 @@ FRIENDS_DB = {
     "管理員 (本人)": {"id": "1dKLbifoTDOgeUPWasPmcbgl4wLu0_V6hHnCpropVs4k", "pin": "0526"},
     "哥哥": {"id": "1-ADQndfjfNASx8hKFdSlAOU7w7StaZSmfjJKQJqH6Fw", "pin": "0000"},
     "同學": {"id": "1BmnlohJ59OtuqQ5tCE8xZshIUmRan_4V4TPSRaTJqjg", "pin": "1111"},
+    "DEEN": {"id": "1qnZFy57PcP9E0wbsMLA94-50odiORi7RJ6pXGFTZxiI", "pin": "7159"},
 }
 
 target_url = None
