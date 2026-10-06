@@ -21,9 +21,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 核心邏輯控制器
+# 2. 核心邏輯控制器 (完全修復版)
 # ==========================================
 class CloudAccounting:
+
     def __init__(self):
         try:
             self.conn = st.connection("gsheets", type=GSheetsConnection)
@@ -31,46 +32,98 @@ class CloudAccounting:
         except Exception as e:
             st.error(f"⚠️ 連線失敗：{e}")
             self.is_connected = False
-        if 'records' not in st.session_state: st.session_state.records = []
-        if 'editing_id' not in st.session_state: st.session_state.editing_id = None
+        if "records" not in st.session_state:
+            st.session_state.records = []
+        if "editing_id" not in st.session_state:
+            st.session_state.editing_id = None
 
     def load_data(self, sheet_url=None):
-        if not self.is_connected or not sheet_url: return []
+        if not self.is_connected or not sheet_url:
+            return []
         try:
-            df = self.conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=0)
+            # 讀取試算表
+            df = self.conn.read(
+                spreadsheet=sheet_url, worksheet="Sheet1", ttl=0
+            )
             if df is not None and not df.empty:
-                df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
-                df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
-                st.session_state.records = df.to_dict('records')
-                return st.session_state.records
-        except: pass
-        return []
+                # 確保必要欄位存在
+                required_cols = [
+                    "id",
+                    "date",
+                    "type",
+                    "amount",
+                    "category",
+                    "note",
+                ]
+                for col in required_cols:
+                    if col not in df.columns:
+                        df[col] = ""
+
+                df["amount"] = (
+                    pd.to_numeric(df["amount"], errors="coerce")
+                    .fillna(0)
+                    .astype(float)
+                )
+                df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+                st.session_state.records = df.to_dict("records")
+            else:
+                st.session_state.records = []
+            return st.session_state.records
+        except Exception as e:
+            st.warning(f"💡 讀取或初始化提示：{e}")
+            st.session_state.records = []
+            return []
 
     def save_data(self, sheet_url=None):
-        if not self.is_connected or not sheet_url: return False
+        if not self.is_connected:
+            st.error("❌ 未連線至 Google Sheets 服務")
+            return False
+        if not sheet_url:
+            st.error("❌ 寫入失敗：未取得試算表網址 (sheet_url 為空)")
+            return False
         try:
-            df = pd.DataFrame(st.session_state.records) if st.session_state.records else pd.DataFrame(columns=['id', 'date', 'type', 'amount', 'category', 'note'])
-            self.conn.update(spreadsheet=sheet_url, worksheet="Sheet1", data=df)
+            if st.session_state.records:
+                df = pd.DataFrame(st.session_state.records)
+            else:
+                df = pd.DataFrame(
+                    columns=["id", "date", "type", "amount", "category", "note"]
+                )
+
+            # 寫入 GSheets
+            self.conn.update(
+                spreadsheet=sheet_url, worksheet="Sheet1", data=df
+            )
             st.toast("✅ 雲端同步成功！")
             return True
         except Exception as e:
-            st.error(f"❌ 寫入失敗：{e}")
+            st.error(f"❌ 寫入失敗（詳細原因）：{e}")
             return False
 
-    def add_or_update(self, r_date, r_type, amount, category, note, sheet_url=None):
+    def add_or_update(
+        self, r_date, r_type, amount, category, note, sheet_url=None
+    ):
         if st.session_state.editing_id:
             for r in st.session_state.records:
-                if r['id'] == st.session_state.editing_id:
-                    r.update({'date': r_date.strftime('%Y-%m-%d'), 'type': r_type, 'amount': amount, 'category': category, 'note': note})
+                if r["id"] == st.session_state.editing_id:
+                    r.update({
+                        "date": r_date.strftime("%Y-%m-%d"),
+                        "type": r_type,
+                        "amount": float(amount),
+                        "category": category,
+                        "note": note,
+                    })
                     break
             st.session_state.editing_id = None
         else:
-            st.session_state.records.append({'id': str(uuid.uuid4())[:8], 'date': r_date.strftime('%Y-%m-%d'), 'type': r_type, 'amount': amount, 'category': category, 'note': note})
-        self.save_data(sheet_url)
-
-if 'app' not in st.session_state: st.session_state.app = CloudAccounting()
-app = st.session_state.app
-
+            st.session_state.records.append({
+                "id": str(uuid.uuid4())[:8],
+                "date": r_date.strftime("%Y-%m-%d"),
+                "type": r_type,
+                "amount": float(amount),
+                "category": category,
+                "note": note,
+            })
+        return self.save_data(sheet_url)
 # ==========================================
 # 3. 登入與側邊欄 (終極修正版)
 # ==========================================
