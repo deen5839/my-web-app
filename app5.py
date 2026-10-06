@@ -124,6 +124,11 @@ class CloudAccounting:
                 "note": note,
             })
         return self.save_data(sheet_url)
+# 🔑 關鍵修正：確保全域變數 app 在最頂層立刻被實例化！
+if 'app' not in st.session_state:
+    st.session_state.app = CloudAccounting()
+
+app = st.session_state.app  # 讓全域隨時都能存取 app
 # ==========================================
 # 3. 登入與側邊欄 (終極修正版)
 # ==========================================
