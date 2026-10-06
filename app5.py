@@ -195,42 +195,84 @@ if target_url:
     
     tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
-    # --- Tab 1: 記帳 ---
+   # --- Tab 1: 記帳 (無 Form 阻擋測試版) ---
     with tab1:
-        edit_item = next((r for r in st.session_state.records if r['id'] == st.session_state.editing_id), None) if st.session_state.editing_id else None
+        edit_item = next(
+            (
+                r
+                for r in st.session_state.records
+                if r["id"] == st.session_state.editing_id
+            ),
+            None,
+        ) if st.session_state.editing_id else None
         if edit_item:
             st.warning(f"📝 正在編輯紀錄 ID: {st.session_state.editing_id}")
-        
-        r_type_idx = 0 if not edit_item or edit_item['type'] == "支出" else 1
-        r_type = st.radio("收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True)
-        
-        with st.form("entry_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                default_date = datetime.strptime(edit_item['date'], '%Y-%m-%d').date() if edit_item else date.today()
-                r_date = st.date_input("日期", default_date)
-            with c2:
-                r_amount = st.number_input("金額", min_value=0.0, value=float(edit_item['amount']) if edit_item else 0.0)
-                cats = ['薪水', '獎金', '投資', '發票', '房租', '洗衣店', '其他'] if r_type == '收入' else ['飲食', '交通', '購物', '醫療', '訂閱', '信用卡', '瓦斯', '其他', '生活費', '電費', '水費', '職業工會']
-                try: cat_idx = cats.index(edit_item['category']) if edit_item and edit_item['category'] in cats else 0
-                except: cat_idx = 0
-                r_cat = st.selectbox("分類", cats, index=cat_idx)
-            
-            r_note = st.text_input("詳細備註", value=edit_item['note'] if edit_item else "")
-            
-            btn_col1, btn_col2 = st.columns(2)
-            if btn_col1.form_submit_button("🚀 同步至雲端", use_container_width=True):
-                if r_amount > 0:
-                    # 🔑 這裡強制將 target_url 傳入
-                    app.add_or_update(r_date, r_type, r_amount, r_cat, r_note, target_url)
+
+        r_type_idx = 0 if not edit_item or edit_item["type"] == "支出" else 1
+        r_type = st.radio(
+            "收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            default_date = (
+                datetime.strptime(edit_item["date"], "%Y-%m-%d").date()
+                if edit_item
+                else date.today()
+            )
+            r_date = st.date_input("日期", default_date)
+        with c2:
+            r_amount = st.number_input(
+                "金額",
+                min_value=0.0,
+                value=float(edit_item["amount"]) if edit_item else 0.0,
+            )
+            cats = (
+                ["薪水", "獎金", "投資", "發票", "房租", "洗衣店", "其他"]
+                if r_type == "收入"
+                else [
+                    "飲食",
+                    "交通",
+                    "購物",
+                    "醫療",
+                    "訂閱",
+                    "信用卡",
+                    "瓦斯",
+                    "其他",
+                    "生活費",
+                    "電費",
+                    "水費",
+                    "職業工會",
+                ]
+            )
+            try:
+                cat_idx = (
+                    cats.index(edit_item["category"])
+                    if edit_item and edit_item["category"] in cats
+                    else 0
+                )
+            except:
+                cat_idx = 0
+            r_cat = st.selectbox("分類", cats, index=cat_idx)
+
+        r_note = st.text_input(
+            "詳細備註", value=edit_item["note"] if edit_item else ""
+        )
+
+        btn_col1, btn_col2 = st.columns(2)
+        if btn_col1.button("🚀 同步至雲端", use_container_width=True):
+            if r_amount <= 0:
+                st.error("⚠️ 請輸入大於 0 的金額！")
+            else:
+                st.info("⏳ 正在寫入雲端，請稍候...")
+                success = app.add_or_update(
+                    r_date, r_type, r_amount, r_cat, r_note, target_url
+                )
+                if success:
+                    st.success("🎉 資料成功寫入！")
                     st.rerun()
                 else:
-                    st.warning("⚠️ 金額必須大於 0 才可以寫入喔！")
-            
-            if edit_item:
-                if btn_col2.form_submit_button("❌ 取消編輯", use_container_width=True):
-                    st.session_state.editing_id = None
-                    st.rerun()
+                    st.error("❌ 寫入失敗，請檢查側邊欄錯誤訊息。")
 
     # --- Tab 2: 數據分析 ---
     with tab2:
