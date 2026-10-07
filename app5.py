@@ -195,8 +195,12 @@ if target_url:
     
     tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
-  # --- Tab 1: 記帳 (修復：同步後自動清空重置) ---
+ # --- Tab 1: 記帳 (版本計數器強制清空版) ---
     with tab1:
+        # 初始化輸入欄位版本號
+        if "input_version" not in st.session_state:
+            st.session_state.input_version = 0
+
         edit_item = next(
             (
                 r
@@ -205,13 +209,14 @@ if target_url:
             ),
             None,
         ) if st.session_state.editing_id else None
-        
+
         if edit_item:
             st.warning(f"📝 正在編輯紀錄 ID: {st.session_state.editing_id}")
 
         r_type_idx = 0 if not edit_item or edit_item["type"] == "支出" else 1
         r_type = st.radio(
-            "收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True
+            "收支類型", ["支出", "收入"], index=r_type_idx, horizontal=True,
+            key=f"type_{st.session_state.editing_id}_{st.session_state.input_version}"
         )
 
         c1, c2 = st.columns(2)
@@ -221,13 +226,16 @@ if target_url:
                 if edit_item
                 else date.today()
             )
-            r_date = st.date_input("日期", default_date)
+            r_date = st.date_input(
+                "日期", default_date,
+                key=f"date_{st.session_state.editing_id}_{st.session_state.input_version}"
+            )
         with c2:
             r_amount = st.number_input(
                 "金額",
                 min_value=0.0,
                 value=float(edit_item["amount"]) if edit_item else 0.0,
-                key=f"amount_{st.session_state.editing_id}" # 💡 利用 key 強制觸發元件重置
+                key=f"amount_{st.session_state.editing_id}_{st.session_state.input_version}"
             )
             cats = (
                 ["薪水", "獎金", "投資", "發票", "房租", "洗衣店", "其他"]
@@ -255,10 +263,15 @@ if target_url:
                 )
             except:
                 cat_idx = 0
-            r_cat = st.selectbox("分類", cats, index=cat_idx, key=f"cat_{st.session_state.editing_id}")
+            r_cat = st.selectbox(
+                "分類", cats, index=cat_idx,
+                key=f"cat_{st.session_state.editing_id}_{st.session_state.input_version}"
+            )
 
         r_note = st.text_input(
-            "詳細備註", value=edit_item["note"] if edit_item else "", key=f"note_{st.session_state.editing_id}"
+            "詳細備註",
+            value=edit_item["note"] if edit_item else "",
+            key=f"note_{st.session_state.editing_id}_{st.session_state.input_version}"
         )
 
         btn_col1, btn_col2 = st.columns(2)
@@ -271,7 +284,8 @@ if target_url:
                     r_date, r_type, r_amount, r_cat, r_note, target_url
                 )
                 if success:
-                    st.session_state.editing_id = None  # 💡 關鍵：寫入成功後重置編輯狀態，恢復乾淨輸入頁面
+                    st.session_state.editing_id = None
+                    st.session_state.input_version += 1  # 💡 關鍵：版本號 +1，強制產生全新輸入欄位（恢復乾淨初始值）
                     st.success("🎉 資料成功寫入！")
                     st.rerun()
                 else:
