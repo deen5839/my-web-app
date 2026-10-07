@@ -195,7 +195,7 @@ if target_url:
     
     tab1, tab2, tab3 = st.tabs(["➕ 快速記帳", "📈 數據分析", "📋 歷史明細"])
 
-   # --- Tab 1: 記帳 (無 Form 阻擋測試版) ---
+  # --- Tab 1: 記帳 (修復：同步後自動清空重置) ---
     with tab1:
         edit_item = next(
             (
@@ -205,6 +205,7 @@ if target_url:
             ),
             None,
         ) if st.session_state.editing_id else None
+        
         if edit_item:
             st.warning(f"📝 正在編輯紀錄 ID: {st.session_state.editing_id}")
 
@@ -226,6 +227,7 @@ if target_url:
                 "金額",
                 min_value=0.0,
                 value=float(edit_item["amount"]) if edit_item else 0.0,
+                key=f"amount_{st.session_state.editing_id}" # 💡 利用 key 強制觸發元件重置
             )
             cats = (
                 ["薪水", "獎金", "投資", "發票", "房租", "洗衣店", "其他"]
@@ -253,10 +255,10 @@ if target_url:
                 )
             except:
                 cat_idx = 0
-            r_cat = st.selectbox("分類", cats, index=cat_idx)
+            r_cat = st.selectbox("分類", cats, index=cat_idx, key=f"cat_{st.session_state.editing_id}")
 
         r_note = st.text_input(
-            "詳細備註", value=edit_item["note"] if edit_item else ""
+            "詳細備註", value=edit_item["note"] if edit_item else "", key=f"note_{st.session_state.editing_id}"
         )
 
         btn_col1, btn_col2 = st.columns(2)
@@ -269,6 +271,7 @@ if target_url:
                     r_date, r_type, r_amount, r_cat, r_note, target_url
                 )
                 if success:
+                    st.session_state.editing_id = None  # 💡 關鍵：寫入成功後重置編輯狀態，恢復乾淨輸入頁面
                     st.success("🎉 資料成功寫入！")
                     st.rerun()
                 else:
